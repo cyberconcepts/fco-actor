@@ -18,9 +18,8 @@ import System.Directory (doesFileExist, findFile)
 import System.Environment (lookupEnv)
 
 import Control.Concurrent.Actor (
-    Behaviour (..), Channel, Message (..), MsgHandler, 
-    defCtlHandler, defListener, dummyHandler, 
-    newChan, send, spawn)
+    Channel, Message (..), MsgHandler, 
+    defCtlHandler, send, spawnDefActor)
 
 
 type CKey = Text
@@ -48,11 +47,7 @@ spawnConfigDef =
       _ -> spawnConfig "../data/config-fco.yaml"
 
 spawnConfig :: FilePath -> IO (Channel ConfigRequest)
-spawnConfig path = do
-    configData <- loadConfig path
-    mb <- newChan
-    spawn defListener [Behaviour mb configHandler] configData
-    return mb
+spawnConfig path = loadConfig path >>= (spawnDefActor configHandler)
 
 configHandler :: MsgHandler ConfigStore ConfigRequest
 configHandler cfgData (Message (ConfigQuery rchannel key)) = do

@@ -12,12 +12,12 @@ import BasicPrelude
 import Control.Monad.Extra (whileM)
 
 import Control.Concurrent.Actor (
-    Behaviour (..), Channel, Listener, Message (..), MsgHandler,
-    defCtlHandler, defListener, 
-    newChan, send, spawn)
+    Behaviour (..), Channel, Actor, Message (..), MsgHandler,
+    defActor, defCtlHandler,
+    newChan, send, spawnActor, spawnDefActor)
 
 
-conIn :: Channel Text -> Listener ()
+conIn :: Channel Text -> Actor ()
 conIn parentChan _ _ =
     whileM $ getLine >>= \case
         "bye" -> send parentChan QuitMsg >> return False
@@ -36,8 +36,7 @@ demoHandler outChan _ QuitMsg = (send outChan QuitMsg) >> (return Nothing)
 
 demo :: IO ()
 demo = do
-    inChan <- newChan
-    outChan <- newChan
-    spawn defListener [Behaviour outChan conOutHandler] ()
-    spawn (conIn inChan) [] ()
-    defListener [Behaviour inChan (demoHandler outChan)] ()
+    mainChan <- newChan
+    outChan <- spawnDefActor conOutHandler ()
+    spawnActor (conIn mainChan) [] ()
+    defActor [Behaviour mainChan (demoHandler outChan)] ()

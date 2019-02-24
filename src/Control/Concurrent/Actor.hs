@@ -26,18 +26,23 @@ type MsgHandler st a = st -> Message a -> IO (Maybe st)
 
 data Behaviour st = forall a. Behaviour (Channel a) (MsgHandler st a)
 
-type Listener st = [Behaviour st] -> st -> IO ()
+type Actor st = [Behaviour st] -> st -> IO ()
 
 
 -- actor functions
 
-spawn :: Listener st -> [Behaviour st] -> st -> IO ThreadId
-spawn listener behaviours state = 
+spawnActor :: Actor st -> [Behaviour st] -> st -> IO ThreadId
+spawnActor listener behaviours state = 
     forkIO $ listener behaviours state
 
-defListener :: Listener st
-defListener behaviours = 
-  whileDataM $ \state -> receive state behaviours
+spawnDefActor :: MsgHandler st a -> st -> IO (Channel a)
+spawnDefActor handler state = do
+    mb <- newChan
+    spawnActor defActor [Behaviour mb handler] state
+    return mb
+
+defActor :: Actor st
+defActor behaviours = whileDataM $ \state -> receive state behaviours
 
 dummyHandler :: MsgHandler st a
 dummyHandler state (Message _) = return $ Just state

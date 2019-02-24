@@ -6,7 +6,7 @@
 --
 
 module Control.Concurrent.Actor.Config (
-  startConfigSvc, startConfigSvcDefault,
+  spawnConfig, spawnConfigDef,
   loadConfig) where
 
 import BasicPrelude
@@ -19,7 +19,8 @@ import System.Environment (lookupEnv)
 
 import Control.Concurrent.Actor (
     Behaviour (..), Channel, Message (..), MsgHandler, 
-    defaultCtlHandler, defaultListener, dummyHandler, newChan, send, spawn)
+    defCtlHandler, defListener, dummyHandler, 
+    newChan, send, spawn)
 
 
 type CKey = Text
@@ -40,18 +41,18 @@ data ConfigRequest = ConfigQuery ConfigRespChannel DSKey
 newtype ConfigResponse = ConfigResponse DataSet
 
 
-startConfigSvcDefault :: IO ()
-startConfigSvcDefault = 
+spawnConfigDef :: IO  (Channel ConfigRequest)
+spawnConfigDef = 
     (lookupEnv "config-fco") >>= \case
-      Just path -> startConfigSvc path
-      _ -> startConfigSvc "../data/config-fco.yaml"
+      Just path -> spawnConfig path
+      _ -> spawnConfig "../data/config-fco.yaml"
 
-startConfigSvc :: FilePath -> IO ()
-startConfigSvc path = do
+spawnConfig :: FilePath -> IO (Channel ConfigRequest)
+spawnConfig path = do
     configData <- loadConfig path
     mb <- newChan
-    spawn defaultListener [Behaviour mb configHandler] configData
-    return ()
+    spawn defListener [Behaviour mb configHandler] configData
+    return mb
 
 configHandler :: MsgHandler ConfigStore ConfigRequest
 configHandler cfgData (Message (ConfigQuery rchannel key)) = do
@@ -59,7 +60,7 @@ configHandler cfgData (Message (ConfigQuery rchannel key)) = do
     return $ Just cfgData
 configHandler cfgData (Message (ConfigUpdate dskey key value)) = 
     return $ Just $ updateData dskey key value cfgData
-configHandler state msg = defaultCtlHandler state msg
+configHandler state msg = defCtlHandler state msg
 
 
 -- storage handling

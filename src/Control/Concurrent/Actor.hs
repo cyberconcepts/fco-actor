@@ -35,19 +35,17 @@ spawn :: Listener st -> [Behaviour st] -> st -> IO ThreadId
 spawn listener behaviours state = 
     forkIO $ listener behaviours state
 
-
-defaultListener :: Listener st
-defaultListener behaviours = 
+defListener :: Listener st
+defListener behaviours = 
   whileDataM $ \state -> receive state behaviours
-
 
 dummyHandler :: MsgHandler st a
 dummyHandler state (Message _) = return $ Just state
-dummyHandler state msg = defaultCtlHandler state msg
+dummyHandler state msg = defCtlHandler state msg
 
-defaultCtlHandler :: MsgHandler st a
-defaultCtlHandler _ QuitMsg = return Nothing
-defaultCtlHandler state _ = return $ Just state
+defCtlHandler :: MsgHandler st a
+defCtlHandler _ QuitMsg = return Nothing
+defCtlHandler state _ = return $ Just state
 
 
 -- messaging functions

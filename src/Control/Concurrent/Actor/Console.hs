@@ -13,7 +13,7 @@ import Control.Monad.Extra (whileM)
 
 import Control.Concurrent.Actor (
     Behaviour (..), Channel, Listener, Message (..), MsgHandler,
-    defaultCtlHandler, defaultListener, 
+    defCtlHandler, defListener, 
     newChan, send, spawn)
 
 
@@ -25,7 +25,7 @@ conIn parentChan _ _ =
 
 conOutHandler :: MsgHandler () Text
 conOutHandler _ (Message line) = putStrLn line >> (return $ Just ())
-conOutHandler _ msg = defaultCtlHandler () msg
+conOutHandler _ msg = defCtlHandler () msg
 
 
 demoHandler :: Channel Text -> MsgHandler () Text
@@ -38,6 +38,6 @@ demo :: IO ()
 demo = do
     inChan <- newChan
     outChan <- newChan
-    spawn defaultListener [Behaviour outChan conOutHandler] ()
+    spawn defListener [Behaviour outChan conOutHandler] ()
     spawn (conIn inChan) [] ()
-    defaultListener [Behaviour inChan (demoHandler outChan)] ()
+    defListener [Behaviour inChan (demoHandler outChan)] ()

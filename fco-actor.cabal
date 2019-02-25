@@ -1,6 +1,6 @@
 name:                 fco-actor
 version:              0.1.0.1
-synopsis:             concurrent actors that communicate via typed channels
+synopsis:             concurrent actors that communicate via mailboxes (typed channels)
 description:          Please see README.md
 homepage:             https://github.com/cyberconcepts/fco-actor
 license:              MIT

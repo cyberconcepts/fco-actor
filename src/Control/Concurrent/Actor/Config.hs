@@ -2,11 +2,21 @@
 {-# LANGUAGE LambdaCase #-}
 
 -- |
+-- Copyright   :  (C) 2019 functionalconcepts.org team
+-- License     :  MIT
+-- Maintainer  :  team@functionalconcepts.org
+-- Stability   :  experimental
+-- Portability :  GHC only (requires STM)
 --
+-- Provide configuration data via an 'Actor' that may be queried or updated.
 --
 
 module Control.Concurrent.Actor.Config (
-  spawnConfig, spawnConfigDef,
+-- * Types
+  ConfigRequest (..), ConfigResponse (..), 
+  ConfigStore, CKey, CValue, DSKey, DataSet,
+-- * Functions
+  spawnConfig, spawnConfigDef, 
   loadConfig) where
 
 import BasicPrelude
@@ -22,21 +32,27 @@ import Control.Concurrent.Actor (
     defCtlHandler, send, spawnDefActor)
 
 
+-- Configuration Store Types
+
 type CKey = Text
 type CValue = Text
 type DSKey = Text
-type DataSet = (DSKey, [(CKey, CValue)])
+type DSValue = HashMap CKey CValue
+type DataSet = (DSKey, DSValue)
 
-type ConfigStore = HM.HashMap DSKey (HashMap CKey CValue)
+-- | The configuration store, a two-level 'HashMap'.
+type ConfigStore = HashMap DSKey DSValue
 
 
--- config actor
+-- Request and Response Message Types
 
 data ConfigRequest = ConfigQuery (Mailbox ConfigResponse) DSKey
                    | ConfigUpdate DSKey CKey CValue
 
 newtype ConfigResponse = ConfigResponse DataSet
 
+
+-- Actor and Handler Functions
 
 spawnConfigDef :: IO  (Mailbox ConfigRequest)
 spawnConfigDef = 
@@ -56,11 +72,11 @@ configHandler cfgData (Message (ConfigUpdate dskey key value)) =
 configHandler state msg = defCtlHandler state msg
 
 
--- storage handling
+-- Storage Handling
 
 getDataFor :: DSKey -> ConfigStore -> DataSet
 getDataFor dskey cfgData = 
-    (dskey, HM.toList (HM.lookupDefault HM.empty dskey cfgData))
+    (dskey, HM.lookupDefault HM.empty dskey cfgData)
 
 updateData :: DSKey -> CKey -> CValue -> ConfigStore -> ConfigStore
 updateData dskey key value cfgData =

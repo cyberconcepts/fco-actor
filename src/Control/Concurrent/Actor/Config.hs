@@ -18,7 +18,7 @@ import System.Directory (doesFileExist, findFile)
 import System.Environment (lookupEnv)
 
 import Control.Concurrent.Actor (
-    Channel, Message (..), MsgHandler, 
+    Mailbox, Message (..), MsgHandler, 
     defCtlHandler, send, spawnDefActor)
 
 
@@ -32,26 +32,24 @@ type ConfigStore = HM.HashMap DSKey (HashMap CKey CValue)
 
 -- config actor
 
-type ConfigRespChannel = Channel ConfigResponse
-
-data ConfigRequest = ConfigQuery ConfigRespChannel DSKey
+data ConfigRequest = ConfigQuery (Mailbox ConfigResponse) DSKey
                    | ConfigUpdate DSKey CKey CValue
 
 newtype ConfigResponse = ConfigResponse DataSet
 
 
-spawnConfigDef :: IO  (Channel ConfigRequest)
+spawnConfigDef :: IO  (Mailbox ConfigRequest)
 spawnConfigDef = 
     (lookupEnv "config-fco") >>= \case
       Just path -> spawnConfig path
       _ -> spawnConfig "../data/config-fco.yaml"
 
-spawnConfig :: FilePath -> IO (Channel ConfigRequest)
+spawnConfig :: FilePath -> IO (Mailbox ConfigRequest)
 spawnConfig path = loadConfig path >>= (spawnDefActor configHandler)
 
 configHandler :: MsgHandler ConfigStore ConfigRequest
-configHandler cfgData (Message (ConfigQuery rchannel key)) = do
-    send rchannel $ Message (ConfigResponse (getDataFor key cfgData))
+configHandler cfgData (Message (ConfigQuery respbox key)) = do
+    send respbox $ Message (ConfigResponse (getDataFor key cfgData))
     return $ Just cfgData
 configHandler cfgData (Message (ConfigUpdate dskey key value)) = 
     return $ Just $ updateData dskey key value cfgData

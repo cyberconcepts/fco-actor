@@ -15,16 +15,16 @@ import Control.Monad.STM
 import Control.Concurrent.Actor.Util (whileDataM)
 
 
--- actor, channel, message types
+-- actor, mailbox, message types
 
 data Message a = Message a | QuitMsg 
   deriving (Eq, Ord, Show)
 
-type Channel a = TChan (Message a)
+type Mailbox a = TChan (Message a)
 
 type MsgHandler st a = st -> Message a -> IO (Maybe st)
 
-data Behaviour st = forall a. Behaviour (Channel a) (MsgHandler st a)
+data Behaviour st = forall a. Behaviour (Mailbox a) (MsgHandler st a)
 
 type Actor st = [Behaviour st] -> st -> IO ()
 
@@ -35,9 +35,9 @@ spawnActor :: Actor st -> [Behaviour st] -> st -> IO ThreadId
 spawnActor listener behaviours state = 
     forkIO $ listener behaviours state
 
-spawnDefActor :: MsgHandler st a -> st -> IO (Channel a)
+spawnDefActor :: MsgHandler st a -> st -> IO (Mailbox a)
 spawnDefActor handler state = do
-    mb <- newChan
+    mb <- mailbox
     spawnActor defActor [Behaviour mb handler] state
     return mb
 
@@ -55,11 +55,11 @@ defCtlHandler state _ = return $ Just state
 
 -- messaging functions
 
-newChan :: IO (Channel a)
-newChan = atomically newTChan
+mailbox :: IO (Mailbox a)
+mailbox = atomically newTChan
 
-send :: Channel a -> Message a -> IO ()
-send chan msg = atomically $ writeTChan chan msg
+send :: Mailbox a -> Message a -> IO ()
+send mb msg = atomically $ writeTChan mb msg
 
 receive :: st -> [Behaviour st] -> IO (Maybe st)
 receive state behaviours =
@@ -67,11 +67,11 @@ receive state behaviours =
   where
       processBehv :: st -> [Behaviour st] -> STM (IO (Maybe st))
       processBehv _ [] = retry
-      processBehv state (Behaviour chan handler : rest) =
-        tryReadTChan chan >>= \case
+      processBehv state (Behaviour mb handler : rest) =
+        tryReadTChan mb >>= \case
             Nothing -> processBehv state rest
             Just msg -> return (handler state msg)
 
-receiveChan :: Channel a -> IO (Message a)
-receiveChan = atomically . readTChan
+receiveMailbox :: Mailbox a -> IO (Message a)
+receiveMailbox = atomically . readTChan
 

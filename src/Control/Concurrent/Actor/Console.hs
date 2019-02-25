@@ -12,31 +12,31 @@ import BasicPrelude
 import Control.Monad.Extra (whileM)
 
 import Control.Concurrent.Actor (
-    Behaviour (..), Channel, Actor, Message (..), MsgHandler,
+    Behaviour (..), Mailbox, Actor, Message (..), MsgHandler,
     defActor, defCtlHandler,
-    newChan, send, spawnActor, spawnDefActor)
+    mailbox, send, spawnActor, spawnDefActor)
 
 
-conIn :: Channel Text -> Actor ()
-conIn parentChan _ _ =
+conIn :: Mailbox Text -> Actor ()
+conIn parent _ _ =
     whileM $ getLine >>= \case
-        "bye" -> send parentChan QuitMsg >> return False
-        line -> send parentChan (Message line) >> return True
+        "bye" -> send parent QuitMsg >> return False
+        line -> send parent (Message line) >> return True
 
 conOutHandler :: MsgHandler () Text
 conOutHandler _ (Message line) = putStrLn line >> (return $ Just ())
 conOutHandler _ msg = defCtlHandler () msg
 
 
-demoHandler :: Channel Text -> MsgHandler () Text
-demoHandler outChan _ (Message line) = 
-    (send outChan $ Message line) >> (return $ Just ())
-demoHandler outChan _ QuitMsg = (send outChan QuitMsg) >> (return Nothing)
+demoHandler :: Mailbox Text -> MsgHandler () Text
+demoHandler outbox _ (Message line) = 
+    (send outbox $ Message line) >> (return $ Just ())
+demoHandler outbox _ QuitMsg = (send outbox QuitMsg) >> (return Nothing)
 
 
 demo :: IO ()
 demo = do
-    mainChan <- newChan
-    outChan <- spawnDefActor conOutHandler ()
-    spawnActor (conIn mainChan) [] ()
-    defActor [Behaviour mainChan (demoHandler outChan)] ()
+    mybox <- mailbox
+    outbox <- spawnDefActor conOutHandler ()
+    spawnActor (conIn mybox) [] ()
+    defActor [Behaviour mybox (demoHandler outbox)] ()

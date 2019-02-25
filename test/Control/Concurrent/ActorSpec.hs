@@ -17,8 +17,8 @@ main = hspec spec
 spec :: Spec
 spec = do
 
-  describe "channel" $ do
+  describe "mailbox" $ do
     it "accepts and delivers a message" $ do
-      c1 <- newChan
-      send c1 (Message 7) `shouldReturn` ()
-      receiveChan c1 `shouldReturn` (Message 7)
+      mb <- mailbox
+      send mb (Message 7) `shouldReturn` ()
+      receiveMailbox mb `shouldReturn` (Message 7)

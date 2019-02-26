@@ -14,7 +14,7 @@
 module Control.Concurrent.Actor.Config (
 -- * Types
   ConfigRequest (..), ConfigResponse (..), 
-  ConfigStore, CKey, CValue, DSKey, DataSet,
+  ConfigStore, CKey, CValue, DSKey, DSValue, DataSet,
 -- * Functions
   spawnConfig, spawnConfigDef, 
   loadConfig) where

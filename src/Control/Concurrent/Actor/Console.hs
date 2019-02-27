@@ -18,8 +18,7 @@ import BasicPrelude
 import Control.Monad.Extra (whileM)
 
 import Control.Concurrent.Actor (
-    Actor, Behaviour (..), ControlMsg (..), Message (..), 
-    MsgHandler, StdBoxes (..),
+    Actor, Behaviour (..), ControlMsg (..), MsgHandler, StdBoxes (..),
     defActor, send, spawnActor, spawnStdActor, stdBoxes)
 
 
@@ -31,12 +30,12 @@ import Control.Concurrent.Actor (
 conInLoop :: (StdBoxes Text) -> Actor ()
 conInLoop parent _ _ =
     whileM $ getLine >>= \case
-        "bye" -> send (controlBox parent) (Message Quit) >> return False
-        line -> send (messageBox parent) (Message line) >> return True
+        "bye" -> send (controlBox parent) Quit >> return False
+        line -> send (messageBox parent) line >> return True
 
 -- | A message handler that writes the text received to sysout.
 conOutHandler :: MsgHandler () Text
-conOutHandler _ (Message line) = putStrLn line >> (return $ Just ())
+conOutHandler _ line = putStrLn line >> (return $ Just ())
 
 -- | An example main function that echos text from console input 
 -- (received via the 'conInLoop' actor) to output by sending it to
@@ -47,8 +46,8 @@ demo = do
     output <- spawnStdActor conOutHandler ()
     self <- stdBoxes
     spawnActor (conInLoop self) [] ()
-    let ctlHandler _ msg@(Message Quit) =
-            send (controlBox output) msg >> return Nothing
+    let ctlHandler _ Quit =
+            send (controlBox output) Quit >> return Nothing
         inpHandler _ msg = 
             send (messageBox output) msg >> return (Just ())
     defActor [

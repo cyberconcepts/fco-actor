@@ -20,5 +20,5 @@ spec = do
   describe "mailbox" $ do
     it "accepts and delivers a message" $ do
       mb <- mailbox
-      send mb (Message 7) `shouldReturn` ()
-      receiveMailbox mb `shouldReturn` (Message 7)
+      send mb 7 `shouldReturn` ()
+      receiveMailbox mb `shouldReturn` 7

@@ -28,7 +28,7 @@ import System.Directory (doesFileExist, findFile)
 import System.Environment (lookupEnv)
 
 import Control.Concurrent.Actor (
-    Mailbox, Message (..), MsgHandler, StdBoxes,
+    Mailbox, MsgHandler, StdBoxes,
     send, spawnStdActor)
 
 
@@ -79,10 +79,10 @@ spawnConfig :: FilePath -> IO (StdBoxes ConfigRequest)
 spawnConfig path = loadConfig path >>= (spawnStdActor configHandler)
 
 configHandler :: MsgHandler ConfigStore ConfigRequest
-configHandler cfgData (Message (ConfigQuery respbox key)) = do
-    send respbox $ Message (ConfigResponse (getDataFor key cfgData))
+configHandler cfgData (ConfigQuery respbox key) = do
+    send respbox $ ConfigResponse (getDataFor key cfgData)
     return $ Just cfgData
-configHandler cfgData (Message (ConfigUpdate dskey key value)) = 
+configHandler cfgData (ConfigUpdate dskey key value) = 
     return $ Just $ updateData dskey key value cfgData
 
 

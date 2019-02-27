@@ -25,10 +25,6 @@ import Control.Monad.STM (retry)
 
 -- * Types
 
--- | The basic 'Message' type.
-data Message a = Message a  -- ^ A message with a payload of type @a@.
-  deriving (Eq, Ord, Show)
-
 -- | A special typ of message for providing control information to an 'Actor'.
 --
 -- At the moment there is only one value, 'Quit', that tells the 'Actor'
@@ -37,14 +33,14 @@ data ControlMsg = Quit
 
 -- | A 'Mailbox' is a type channel in which messages are stored,
 -- waiting to be read via a 'receive' or 'receiveMailbox' call.
-type Mailbox a = TChan (Message a)
+type Mailbox a = TChan a
 
 -- | A message handler is called with the current stat of the 'Actor'
--- and a 'Message'. It processes the message and returns 
+-- and a message. It processes the message and returns 
 -- a new state value wrapped in 'Maybe'.
-type MsgHandler st a = st -> Message a -> IO (Maybe st)
+type MsgHandler st a = st -> a -> IO (Maybe st)
 
--- | A 'behaviour' is a combination of a 'Mailbox' and a 'MsgHandler'
+-- | A 'Behaviour' is a combination of a 'Mailbox' and a 'MsgHandler'
 -- that will process a message received in the 'Mailbox'.
 data Behaviour st = forall a. Behaviour (Mailbox a) (MsgHandler st a)
 
@@ -97,7 +93,7 @@ defActor behaviours = whileDataM $ \state -> receive state behaviours
 -- | A default handler for control messages, returning 'Nothing' when
 -- called with a 'Quit'.
 defControlHandler :: MsgHandler st ControlMsg
-defControlHandler _ (Message Quit) = return Nothing
+defControlHandler _ Quit = return Nothing
 defControlHandler state _ = return $ Just state
 
 
@@ -108,7 +104,7 @@ mailbox :: IO (Mailbox a)
 mailbox = atomically newTChan
 
 -- | Send a 'Message' to a 'Mailbox'.
-send :: Mailbox a -> Message a -> IO ()
+send :: Mailbox a -> a -> IO ()
 send mb msg = atomically $ writeTChan mb msg
 
 -- | Check for each of the 'Behaviour's specified if there is a 
@@ -128,7 +124,7 @@ receive state behaviours =
 -- | Wait for a 'Message' in the 'Mailbox' given. This function should
 -- only be used in very special cases (or for testing); 
 -- in most cases you will want to use 'receive' instead.
-receiveMailbox :: Mailbox a -> IO (Message a)
+receiveMailbox :: Mailbox a -> IO a
 receiveMailbox = atomically . readTChan
 
 

@@ -12,7 +12,17 @@
 -- Actors: processes communicating via mailboxes (typed channels).
 --
 
-module Control.Concurrent.Actor where
+module Control.Concurrent.Actor (
+  -- * Types
+  ControlMsg (..), Mailbox, StdBoxes (..), stdBoxes,
+  MsgHandler, Behaviour (..), Behavior, Actor,
+  -- * Actors and Message Handlers
+  spawnActor, spawnStdActor, defActor, defCtlHandler,
+  -- * Messaging Functions
+  mailbox, send, receive, receiveMailbox,
+  -- * Utility Functions
+  whileDataM
+  ) where
 
 import BasicPrelude
 
@@ -56,7 +66,10 @@ type MsgHandler st a = st -> a -> IO (Maybe st)
 
 -- | A 'Behaviour' is a combination of a 'Mailbox' and a 'MsgHandler'
 -- that will process a message received in the 'Mailbox'.
-data Behaviour st = forall a. Behaviour (Mailbox a) (MsgHandler st a)
+data Behaviour st = forall a. Behv (Mailbox a) (MsgHandler st a)
+
+-- | In case you prefer the American spelling...
+type Behavior = Behaviour
 
 -- | An 'Actor' consists of - usually - one or more 'Behaviour's and a state.
 -- Use an empty list of 'Behaviour's for 'Actor's that do not receive
@@ -80,21 +93,21 @@ spawnStdActor :: MsgHandler st msg -> st -> IO (StdBoxes msg)
 spawnStdActor handler state = do
     boxes <- stdBoxes
     spawnActor defActor [
-        Behaviour (controlBox boxes) defControlHandler,
-        Behaviour (messageBox boxes) handler
+        Behv (controlBox boxes) defCtlHandler,
+        Behv (messageBox boxes) handler
       ] state
     return boxes
 
 -- | A simple receive loop that stops when one of the handlers
 -- invoked returns 'Nothing' instead of 'Just' a new state value.
 defActor :: Actor st
-defActor behaviours = whileDataM $ \state -> receive state behaviours
+defActor behvs = whileDataM $ \state -> receive state behvs
 
 -- | A default handler for control messages, returning 'Nothing' when
 -- called with a 'Quit'.
-defControlHandler :: MsgHandler st ControlMsg
-defControlHandler _ Quit = return Nothing
-defControlHandler state _ = return $ Just state
+defCtlHandler :: MsgHandler st ControlMsg
+defCtlHandler _ Quit = return Nothing
+--defCtlHandler state _ = return $ Just state  -- not needed yet
 
 
 -- * Messaging Functions
@@ -111,12 +124,12 @@ send mb msg = atomically $ writeTChan mb msg
 -- 'Message' waiting in the 'Mailbox' and process the first one found. 
 -- If there aren't any messages it blocks until one is available.
 receive :: st -> [Behaviour st] -> IO (Maybe st)
-receive state behaviours =
-    join (atomically $ processBehv state behaviours)
+receive state behvs =
+    join (atomically $ processBehv state behvs)
   where
       processBehv :: st -> [Behaviour st] -> STM (IO (Maybe st))
       processBehv _ [] = retry
-      processBehv state (Behaviour mb handler : rest) =
+      processBehv state (Behv mb handler : rest) =
         tryReadTChan mb >>= \case
             Nothing -> processBehv state rest
             Just msg -> return (handler state msg)

@@ -51,7 +51,7 @@ demo = do
         inpHandler _ msg = 
             send (messageBox output) msg >> return (Just ())
     defActor [
-        Behaviour (controlBox self) ctlHandler,
-        Behaviour (messageBox self) inpHandler
+        Behv (controlBox self) ctlHandler,
+        Behv (messageBox self) inpHandler
       ] ()
 

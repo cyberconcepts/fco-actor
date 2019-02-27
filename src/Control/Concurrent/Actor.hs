@@ -35,20 +35,6 @@ data ControlMsg = Quit
 -- waiting to be read via a 'receive' or 'receiveMailbox' call.
 type Mailbox a = TChan a
 
--- | A message handler is called with the current stat of the 'Actor'
--- and a message. It processes the message and returns 
--- a new state value wrapped in 'Maybe'.
-type MsgHandler st a = st -> a -> IO (Maybe st)
-
--- | A 'Behaviour' is a combination of a 'Mailbox' and a 'MsgHandler'
--- that will process a message received in the 'Mailbox'.
-data Behaviour st = forall a. Behaviour (Mailbox a) (MsgHandler st a)
-
--- | An 'Actor' consists of - usually - one or more 'Behaviour's and a state.
--- Use an empty list of 'Behaviour's for 'Actor's that do not receive
--- any 'Message's. Use '()' as dummy value if there is no state.
-type Actor st = [Behaviour st] -> st -> IO ()
-
 -- | A typical 'Actor' needs two 'Mailbox'es, one for receiving control messages,
 -- and one for regular messages with a payload.
 data StdBoxes msg = StdBoxes {
@@ -62,6 +48,20 @@ stdBoxes = do
     ctlBox <- mailbox
     msgBox <- mailbox
     return $ StdBoxes ctlBox msgBox
+
+-- | A message handler is called with the current stat of the 'Actor'
+-- and a message. It processes the message and returns 
+-- a new state value wrapped in 'Maybe'.
+type MsgHandler st a = st -> a -> IO (Maybe st)
+
+-- | A 'Behaviour' is a combination of a 'Mailbox' and a 'MsgHandler'
+-- that will process a message received in the 'Mailbox'.
+data Behaviour st = forall a. Behaviour (Mailbox a) (MsgHandler st a)
+
+-- | An 'Actor' consists of - usually - one or more 'Behaviour's and a state.
+-- Use an empty list of 'Behaviour's for 'Actor's that do not receive
+-- any 'Message's. Use '()' as dummy value if there is no state.
+type Actor st = [Behaviour st] -> st -> IO ()
 
 
 -- * Actors and Message Handlers

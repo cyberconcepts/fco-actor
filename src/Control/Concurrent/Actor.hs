@@ -96,7 +96,7 @@ send mb msg = atomically $ writeTChan mb msg
 
 -- | Check for each of the 'Behaviour's specified if there is a 
 -- 'Message' waiting in the 'Mailbox' and process the first one found. 
--- Blocks if there aren't any messages until one is available.
+-- If there aren't any messages it blocks until one is available.
 receive :: st -> [Behaviour st] -> IO (Maybe st)
 receive state behaviours =
     join (atomically $ processBehv state behaviours)
@@ -117,10 +117,11 @@ receiveMailbox = atomically . readTChan
 
 -- * Utility Functions
 
--- | Repeat an action in a monad (typically IO).
+-- | Repeat a 'Monad'ic action.
 -- 
--- The action takes a state as parameter and returns an updated 
--- version of this state wrapped in a 'Maybe' value. 
+-- The action takes a state as parameter; the initial value of
+-- this state is the second parameter of 'whileDataM'.
+-- The action returns an updated version of the state wrapped in a 'Maybe' value. 
 -- When the action returns 'Nothing' the loop stops.
 whileDataM :: Monad m => (s -> m (Maybe s)) -> s -> m ()
 whileDataM act state =

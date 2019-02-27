@@ -2,9 +2,9 @@
 {-# LANGUAGE LambdaCase #-}
 
 -- |
--- Copyright   :  (C) 2019 functionalconcepts.org team
+-- Copyright   :  (C) 2019 team@functionalconcepts.org
 -- License     :  MIT
--- Maintainer  :  team@functionalconcepts.org
+-- Maintainer  :  Helmut Merz <helmutm@cy55.de>
 -- Stability   :  experimental
 -- Portability :  GHC only (requires STM)
 --
@@ -34,10 +34,15 @@ import Control.Concurrent.Actor (
 
 -- Configuration Store Types
 
+-- | The key of a config dataset item.
 type CKey = Text
+-- | The value of a config dataset item.
 type CValue = Text
+-- | The key referencing a config dataset.
 type DSKey = Text
+-- | The dataset itself.
 type DSValue = HashMap CKey CValue
+-- | A dataset togegher with its key, as returned in a 'ConfigResponse' message.
 type DataSet = (DSKey, DSValue)
 
 -- | The configuration store, a two-level 'HashMap'.
@@ -46,20 +51,30 @@ type ConfigStore = HashMap DSKey DSValue
 
 -- Request and Response Message Types
 
+-- | A message sent to a config actor that either queries
+-- the configuration for a certain key or updates a dataset.
 data ConfigRequest = ConfigQuery (Mailbox ConfigResponse) DSKey
                    | ConfigUpdate DSKey CKey CValue
 
+-- | The response sent back upon receiveing a 'ConfigQuery' request.
 newtype ConfigResponse = ConfigResponse DataSet
 
 
 -- Actor and Handler Functions
 
+-- | Spawn a config actor by providing a default path to the 
+-- yaml file with the configuration data.
+--
+-- The path is provided via the environment variable "config-fco";
+-- if this is not set the default path "../data/config-fco.yaml" is used.
 spawnConfigDef :: IO  (Mailbox ConfigRequest)
 spawnConfigDef = 
     (lookupEnv "config-fco") >>= \case
       Just path -> spawnConfig path
       _ -> spawnConfig "../data/config-fco.yaml"
 
+-- | Load config data from the path given into the 'ConfigStore'
+-- and spawn a config actor waiting for a 'ConfigRequest'.
 spawnConfig :: FilePath -> IO (Mailbox ConfigRequest)
 spawnConfig path = loadConfig path >>= (spawnDefActor configHandler)
 
@@ -84,7 +99,7 @@ updateData dskey key value cfgData =
     where updateDS k v dat = 
             HM.insert k v (HM.lookupDefault HM.empty dskey dat)
 
-
+-- | Load the 'ConfigStore' by reading the yaml file given.
 loadConfig :: FilePath -> IO ConfigStore
 loadConfig path = do
     let extractString = fmap (\(String vs) -> vs)

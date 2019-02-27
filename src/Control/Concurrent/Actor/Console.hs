@@ -11,49 +11,48 @@
 -- Simple console input and output actors.
 --
 
-module Control.Concurrent.Actor.Console (conIn, conOutHandler, demo) where
+module Control.Concurrent.Actor.Console (conInLoop, conOutHandler, demo) where
 
 import BasicPrelude
 
 import Control.Monad.Extra (whileM)
 
 import Control.Concurrent.Actor (
-    Behaviour (..), Mailbox, Actor, Message (..), MsgHandler,
-    defActor, defCtlHandler,
-    mailbox, send, spawnActor, spawnDefActor)
+    Actor, Behaviour (..), ControlMsg (..), Message (..), 
+    MsgHandler, StdBoxes (..),
+    defActor, send, spawnActor, spawnStdActor, stdBoxes)
 
 
 -- | Create a console input (sysin) 'Actor'. 
 --
--- Sends input lines to the 'Mailbox' given.
--- When the text "bye" is entered it sends a 'QuitMsg' message
--- to the client 'Mailbox' and stops the input loops.
-conIn :: Mailbox Text -> Actor ()
-conIn parent _ _ =
+-- Sends input lines to the parent 'messageBox'.
+-- When the text "bye" is entered it sends a 'Quit' message
+-- to the parent 'controlBox' and stops the input loop.
+conInLoop :: (StdBoxes Text) -> Actor ()
+conInLoop parent _ _ =
     whileM $ getLine >>= \case
-        "bye" -> send parent QuitMsg >> return False
-        line -> send parent (Message line) >> return True
+        "bye" -> send (controlBox parent) (Message Quit) >> return False
+        line -> send (messageBox parent) (Message line) >> return True
 
 -- | A message handler that writes the text received to sysout.
 conOutHandler :: MsgHandler () Text
 conOutHandler _ (Message line) = putStrLn line >> (return $ Just ())
-conOutHandler _ msg = defCtlHandler () msg
-
 
 -- | An example main function that echos text from console input 
--- (received from the 'conIn' actor) to output by sending it to
--- an actor that uses the 'conOutHandler'. 
+-- (received via the 'conInLoop' actor) to output by sending it to
+-- an console output actor that uses 'conOutHandler'.
 -- Stops when "bye" is entered.
 demo :: IO ()
 demo = do
-    mybox <- mailbox
-    outbox <- spawnDefActor conOutHandler ()
-    spawnActor (conIn mybox) [] ()
-    defActor [Behaviour mybox (demoHandler outbox)] ()
-
--- internal message handler for the demo actor
-demoHandler :: Mailbox Text -> MsgHandler () Text
-demoHandler outbox _ (Message line) = 
-    (send outbox $ Message line) >> (return $ Just ())
-demoHandler outbox _ QuitMsg = (send outbox QuitMsg) >> (return Nothing)
+    output <- spawnStdActor conOutHandler ()
+    self <- stdBoxes
+    spawnActor (conInLoop self) [] ()
+    let ctlHandler _ msg@(Message Quit) =
+            send (controlBox output) msg >> return Nothing
+        inpHandler _ msg = 
+            send (messageBox output) msg >> return (Just ())
+    defActor [
+        Behaviour (controlBox self) ctlHandler,
+        Behaviour (messageBox self) inpHandler
+      ] ()
 

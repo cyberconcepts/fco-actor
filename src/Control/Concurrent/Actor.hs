@@ -48,6 +48,26 @@ data Behaviour st = forall a. Behaviour (Mailbox a) (MsgHandler st a)
 -- any 'Message's. Use '()' as dummy value if there is no state.
 type Actor st = [Behaviour st] -> st -> IO ()
 
+-- | A special typ of message for providing control information to an 'Actor'.
+--
+-- At the moment there is only one value, 'Quit', that tells the 'Actor'
+-- to stop.
+data ControlMsg = Quit
+
+-- | A typical 'Actor' needs two 'Mailbox'es, one for receiving control messages,
+-- and one for regular messages with a payload.
+data StdBoxes msg = StdBoxes {
+    controlBox :: Mailbox ControlMsg,
+    messageBox :: Mailbox msg
+}
+
+-- | Instantiate a 'StdBoxes' object with two 'MailBox'es.
+stdBoxes :: IO (StdBoxes msg)
+stdBoxes = do
+    ctlBox <- mailbox
+    msgBox <- mailbox
+    return $ StdBoxes ctlBox msgBox
+
 
 -- * Actors and Message Handlers
 
@@ -56,6 +76,19 @@ type Actor st = [Behaviour st] -> st -> IO ()
 spawnActor :: Actor st -> [Behaviour st] -> st -> IO ()
 spawnActor actor behaviours state = 
     forkIO (actor behaviours state) >> return ()
+
+-- | Fork a simple standard 'Actor' process with two standard 'Mailbox'es 
+-- that are created during the call. 
+-- Uses 'defActor' for the receive loop.
+-- Returns a 'StdBoxes' object with the mailboxes created.
+spawnStdActor :: MsgHandler st msg -> st -> IO (StdBoxes msg)
+spawnStdActor handler state = do
+    boxes <- stdBoxes
+    spawnActor defActor [
+        Behaviour (controlBox boxes) defControlHandler,
+        Behaviour (messageBox boxes) handler
+      ] state
+    return boxes
 
 -- | Fork a simple default 'Actor' process with just one 'Mailbox' that is 
 -- created during the call, using 'defActor' for the receive loop.
@@ -71,11 +104,10 @@ spawnDefActor handler state = do
 defActor :: Actor st
 defActor behaviours = whileDataM $ \state -> receive state behaviours
 
--- | A dummy handler that does nothing when called with regular messages
--- but correctly reacts to control 'Message's.
-dummyHandler :: MsgHandler st a
-dummyHandler state (Message _) = return $ Just state
-dummyHandler state msg = defCtlHandler state msg
+-- | A default handler for control messages, returning 'Nothing' when
+-- called with a 'Quit'.
+defControlHandler _ (Message Quit) = return Nothing
+defControlHandler state _ = return $ Just state
 
 -- | A default handler for control 'Message's, returning 'Nothing' when
 -- called with a 'QuitMsg'.

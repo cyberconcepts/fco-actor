@@ -35,7 +35,7 @@ import Control.Monad.STM (retry)
 
 -- * Types
 
--- | A special typ of message for providing control information to an 'Actor'.
+-- | A special type of message for providing control information to an 'Actor'.
 --
 -- At the moment there is only one value, 'Quit', that tells the 'Actor'
 -- to stop.
@@ -147,7 +147,7 @@ receiveMailbox = atomically . readTChan
 -- 
 -- The action takes a state as parameter; the initial value of
 -- this state is the second parameter of 'whileDataM'.
--- The action returns an updated version of the state wrapped in a 'Maybe' value. 
+-- The action returns an updated version of the state wrapped in a 'Maybe'.
 -- When the action returns 'Nothing' the loop stops.
 whileDataM :: Monad m => (s -> m (Maybe s)) -> s -> m ()
 whileDataM act state =

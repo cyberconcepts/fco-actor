@@ -28,8 +28,8 @@ import System.Directory (doesFileExist, findFile)
 import System.Environment (lookupEnv)
 
 import Control.Concurrent.Actor (
-    Mailbox, Message (..), MsgHandler, 
-    defCtlHandler, send, spawnDefActor)
+    Mailbox, Message (..), MsgHandler, StdBoxes,
+    send, spawnStdActor)
 
 
 -- Configuration Store Types
@@ -67,7 +67,7 @@ newtype ConfigResponse = ConfigResponse DataSet
 --
 -- The path is provided via the environment variable "config-fco";
 -- if this is not set the default path "../data/config-fco.yaml" is used.
-spawnConfigDef :: IO  (Mailbox ConfigRequest)
+spawnConfigDef :: IO  (StdBoxes ConfigRequest)
 spawnConfigDef = 
     (lookupEnv "config-fco") >>= \case
       Just path -> spawnConfig path
@@ -75,8 +75,8 @@ spawnConfigDef =
 
 -- | Load config data from the path given into the 'ConfigStore'
 -- and spawn a config actor waiting for a 'ConfigRequest'.
-spawnConfig :: FilePath -> IO (Mailbox ConfigRequest)
-spawnConfig path = loadConfig path >>= (spawnDefActor configHandler)
+spawnConfig :: FilePath -> IO (StdBoxes ConfigRequest)
+spawnConfig path = loadConfig path >>= (spawnStdActor configHandler)
 
 configHandler :: MsgHandler ConfigStore ConfigRequest
 configHandler cfgData (Message (ConfigQuery respbox key)) = do
@@ -84,7 +84,6 @@ configHandler cfgData (Message (ConfigQuery respbox key)) = do
     return $ Just cfgData
 configHandler cfgData (Message (ConfigUpdate dskey key value)) = 
     return $ Just $ updateData dskey key value cfgData
-configHandler state msg = defCtlHandler state msg
 
 
 -- Storage Handling

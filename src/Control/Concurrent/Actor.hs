@@ -27,8 +27,13 @@ import Control.Monad.STM (retry)
 
 -- | The basic 'Message' type.
 data Message a = Message a  -- ^ A message with a payload of type @a@.
-   | QuitMsg                -- ^ A control message, telling the actor to stop.
   deriving (Eq, Ord, Show)
+
+-- | A special typ of message for providing control information to an 'Actor'.
+--
+-- At the moment there is only one value, 'Quit', that tells the 'Actor'
+-- to stop.
+data ControlMsg = Quit
 
 -- | A 'Mailbox' is a type channel in which messages are stored,
 -- waiting to be read via a 'receive' or 'receiveMailbox' call.
@@ -47,12 +52,6 @@ data Behaviour st = forall a. Behaviour (Mailbox a) (MsgHandler st a)
 -- Use an empty list of 'Behaviour's for 'Actor's that do not receive
 -- any 'Message's. Use '()' as dummy value if there is no state.
 type Actor st = [Behaviour st] -> st -> IO ()
-
--- | A special typ of message for providing control information to an 'Actor'.
---
--- At the moment there is only one value, 'Quit', that tells the 'Actor'
--- to stop.
-data ControlMsg = Quit
 
 -- | A typical 'Actor' needs two 'Mailbox'es, one for receiving control messages,
 -- and one for regular messages with a payload.
@@ -90,15 +89,6 @@ spawnStdActor handler state = do
       ] state
     return boxes
 
--- | Fork a simple default 'Actor' process with just one 'Mailbox' that is 
--- created during the call, using 'defActor' for the receive loop.
--- Returns the mailbox created.
-spawnDefActor :: MsgHandler st a -> st -> IO (Mailbox a)
-spawnDefActor handler state = do
-    mb <- mailbox
-    spawnActor defActor [Behaviour mb handler] state
-    return mb
-
 -- | A simple receive loop that stops when one of the handlers
 -- invoked returns 'Nothing' instead of 'Just' a new state value.
 defActor :: Actor st
@@ -106,14 +96,9 @@ defActor behaviours = whileDataM $ \state -> receive state behaviours
 
 -- | A default handler for control messages, returning 'Nothing' when
 -- called with a 'Quit'.
+defControlHandler :: MsgHandler st ControlMsg
 defControlHandler _ (Message Quit) = return Nothing
 defControlHandler state _ = return $ Just state
-
--- | A default handler for control 'Message's, returning 'Nothing' when
--- called with a 'QuitMsg'.
-defCtlHandler :: MsgHandler st a
-defCtlHandler _ QuitMsg = return Nothing
-defCtlHandler state _ = return $ Just state
 
 
 -- * Messaging Functions

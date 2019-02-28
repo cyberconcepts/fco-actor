@@ -1,4 +1,4 @@
-# fco-actor - A Simple Actor Framework for Concurrent Processing
+## fco-actor - A Simple Actor Framework
 
 Actors are lightweight processes that communicate via messages.
 All messages are sent to and reveived from mailboxes that accept
@@ -14,5 +14,5 @@ built into the language.
 There is also some relationship to typed channels as provided by
 [Cloud Haskell](http://haskell-distributed.github.io/).
 
-For a simple usage example see the Control.Concurrent.Actor.Console module.
-
+For a simple usage example see the 
+[Control.Concurrent.Actor.Console}(https://github.com/cyberconcepts/fco-actor/blob/master/src/Control/Concurrent/Actor/Console.hs) module.

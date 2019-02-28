@@ -41,7 +41,7 @@ import Control.Monad.STM (retry)
 -- to stop.
 data ControlMsg = Quit
 
--- | A 'Mailbox' is a type channel in which messages are stored,
+-- | A 'Mailbox' is a typed channel in which messages are stored,
 -- waiting to be read via a 'receive' or 'receiveMailbox' call.
 type Mailbox a = TChan a
 
@@ -59,13 +59,13 @@ stdBoxes = do
     msgBox <- mailbox
     return $ StdBoxes ctlBox msgBox
 
--- | A message handler is called with the current stat of the 'Actor'
+-- | A message handler is called with the current state of the 'Actor'
 -- and a message. It processes the message and returns 
 -- a new state value wrapped in 'Maybe'.
 type MsgHandler st a = st -> a -> IO (Maybe st)
 
--- | A 'Behaviour' is a combination of a 'Mailbox' and a 'MsgHandler'
--- that will process a message received in the 'Mailbox'.
+-- | A 'Behaviour' is a combination of a 'Mailbox' and a 'MsgHandler'.
+-- The 'MsgHandler' will process a message delivered via the 'Mailbox'.
 data Behaviour st = forall a. Behv (Mailbox a) (MsgHandler st a)
 
 -- | In case you prefer the American spelling...
@@ -147,7 +147,7 @@ receiveMailbox = atomically . readTChan
 -- 
 -- The action takes a state as parameter; the initial value of
 -- this state is the second parameter of 'whileDataM'.
--- The action returns an updated version of the state wrapped in a 'Maybe'.
+-- The action returns an updated version of the state wrapped in 'Maybe'.
 -- When the action returns 'Nothing' the loop stops.
 whileDataM :: Monad m => (s -> m (Maybe s)) -> s -> m ()
 whileDataM act state =

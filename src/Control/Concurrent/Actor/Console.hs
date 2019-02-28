@@ -11,7 +11,7 @@
 -- Simple console input and output actors.
 --
 
-module Control.Concurrent.Actor.Console (conInLoop, conOutHandler, demo) where
+module Control.Concurrent.Actor.Console (conInActor, conOutHandler, demo) where
 
 import BasicPrelude
 
@@ -22,30 +22,30 @@ import Control.Concurrent.Actor (
     defActor, send, spawnActor, spawnStdActor, stdBoxes)
 
 
--- | Create a console input (sysin) 'Actor'. 
+-- | Create a console input (stdin) 'Actor'. 
 --
 -- Sends input lines to the parent 'messageBox'.
 -- When the text "bye" is entered it sends a 'Quit' message
 -- to the parent 'controlBox' and stops the input loop.
-conInLoop :: (StdBoxes Text) -> Actor ()
-conInLoop parent _ _ =
+conInActor :: (StdBoxes Text) -> Actor ()
+conInActor parent _ _ =
     whileM $ getLine >>= \case
         "bye" -> send (controlBox parent) Quit >> return False
         line -> send (messageBox parent) line >> return True
 
--- | A message handler that writes the text received to sysout.
+-- | A message handler that writes the text received to stdout.
 conOutHandler :: MsgHandler () Text
-conOutHandler _ line = putStrLn line >> (return $ Just ())
+conOutHandler _ line = putStrLn line >> return (Just ())
 
 -- | An example main function that echos text from console input 
 -- (received via the 'conInLoop' actor) to output by sending it to
--- an console output actor that uses 'conOutHandler'.
+-- a console output actor that uses 'conOutHandler'.
 -- Stops when "bye" is entered.
 demo :: IO ()
 demo = do
     output <- spawnStdActor conOutHandler ()
     self <- stdBoxes
-    spawnActor (conInLoop self) [] ()
+    spawnActor (conInActor self) [] ()
     let ctlHandler _ Quit =
             send (controlBox output) Quit >> return Nothing
         inpHandler _ msg = 

@@ -5,9 +5,9 @@ description:          Please see README.md
 homepage:             https://github.com/cyberconcepts/fco-actor
 license:              MIT
 license-file:         LICENSE
-author:               functionalconcepts.org team
-maintainer:           team@functionalconcepts.org
-copyright:            2019 functionalconcepts.org team
+author:               team@functionalconcepts.org
+maintainer:           helmutm@cy55.de
+copyright:            2019 team@functionalconcepts.org
 category:             Concurrent
 build-type:           Simple
 -- extra-source-files:

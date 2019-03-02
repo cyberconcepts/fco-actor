@@ -18,10 +18,12 @@ library
   exposed-modules:    Control.Concurrent.Actor
                       Control.Concurrent.Actor.Config
                       Control.Concurrent.Actor.Console
+                      Control.Concurrent.Actor.Logging
   build-depends:      base >= 4.7 && < 5
                     , basic-prelude
                     , aeson
                     , containers
+                    , deque
                     , directory
                     , extra
                     , stm

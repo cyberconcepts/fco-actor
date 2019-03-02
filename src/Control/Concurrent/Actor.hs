@@ -14,11 +14,11 @@
 
 module Control.Concurrent.Actor (
   -- * Types
-  ControlMsg (..), Mailbox, StdBoxes (..), stdBoxes,
-  MsgHandler, Behaviour (..), Behavior, Actor,
+  Actor, Behaviour (..), Behavior, MsgHandler, 
+  Mailbox, StdBoxes (..), stdBoxes, ControlMsg (..),
   -- * Actors and Message Handlers
   spawnActor, spawnStdActor, defActor, defCtlHandler,
-  -- * Messaging Functions
+  -- * Basic Messaging Functions
   mailbox, send, receive, receiveMailbox,
   -- * Utility Functions
   whileDataM
@@ -35,11 +35,26 @@ import Control.Monad.STM (retry)
 
 -- * Types
 
--- | A special type of message for providing control information to an 'Actor'.
+-- | An 'Actor' usually consists of two or more 'Mailbox'es with 
+-- corresponding 'Behaviour's and a state.
 --
--- At the moment there is only one value, 'Quit', that tells the 'Actor'
--- to stop.
-data ControlMsg = Quit
+-- Use an empty list of 'Behaviour's for 'Actor's that do not receive
+-- any 'Message's.
+-- Use '()' as dummy value if there is no state.
+type Actor st = [Behaviour st] -> st -> IO ()
+
+-- | A 'Behaviour' is a combination of a 'Mailbox' and a 'MsgHandler'.
+-- The 'MsgHandler' will process a message delivered via the 'Mailbox'.
+data Behaviour st = forall a. Behv (Mailbox a) (MsgHandler st a)
+
+-- | ... in case you prefer the American spelling.
+type Behavior = Behaviour
+
+-- | A message handler is called with the current state of the 'Actor'
+-- and a message. It processes the message and returns 
+-- a new state value wrapped in 'Just'. 
+-- Returns 'Nothing' if the actor should stop receiving.
+type MsgHandler st a = st -> a -> IO (Maybe st)
 
 -- | A 'Mailbox' is a typed channel in which messages are stored,
 -- waiting to be read via a 'receive' or 'receiveMailbox' call.
@@ -59,22 +74,11 @@ stdBoxes = do
     msgBox <- mailbox
     return $ StdBoxes ctlBox msgBox
 
--- | A message handler is called with the current state of the 'Actor'
--- and a message. It processes the message and returns 
--- a new state value wrapped in 'Maybe'.
-type MsgHandler st a = st -> a -> IO (Maybe st)
-
--- | A 'Behaviour' is a combination of a 'Mailbox' and a 'MsgHandler'.
--- The 'MsgHandler' will process a message delivered via the 'Mailbox'.
-data Behaviour st = forall a. Behv (Mailbox a) (MsgHandler st a)
-
--- | In case you prefer the American spelling...
-type Behavior = Behaviour
-
--- | An 'Actor' consists of - usually - one or more 'Behaviour's and a state.
--- Use an empty list of 'Behaviour's for 'Actor's that do not receive
--- any 'Message's. Use '()' as dummy value if there is no state.
-type Actor st = [Behaviour st] -> st -> IO ()
+-- | A special type of message for providing control information to an 'Actor'.
+--
+-- At the moment there is only one value, 'Quit', that tells the 'Actor'
+-- to stop.
+data ControlMsg = Quit
 
 
 -- * Actors and Message Handlers

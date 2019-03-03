@@ -43,7 +43,7 @@ conOutHandler _ line = putStrLn line >> return (Just ())
 -- Stops when "bye" is entered.
 demo :: IO ()
 demo = do
-    output <- spawnStdActor conOutHandler ()
+    output <- spawnStdActor [] conOutHandler ()
     self <- stdBoxes
     spawnActor (conInActor self) [] ()
     let ctlHandler _ Quit =

@@ -76,7 +76,7 @@ spawnConfigDef =
 -- | Load config data from the path given into the 'ConfigStore'
 -- and spawn a config actor waiting for a 'ConfigRequest'.
 spawnConfig :: FilePath -> IO (StdBoxes ConfigRequest)
-spawnConfig path = loadConfig path >>= (spawnStdActor configHandler)
+spawnConfig path = loadConfig path >>= (spawnStdActor [] configHandler)
 
 configHandler :: MsgHandler ConfigStore ConfigRequest
 configHandler cfgData (ConfigQuery respbox key) = do

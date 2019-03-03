@@ -13,11 +13,13 @@
 module Control.Concurrent.Actor.Logging where
 
 import BasicPrelude
+import qualified Data.Text as T
 import Deque (Deque, fromList, cons, unsnoc)
 
 import Control.Concurrent.Actor (
-    Behaviour (..), ControlMsg, Mailbox,
-    defActor, defCtlHandler, mailbox, send, spawnActor)
+    Behaviour (..), ControlMsg, Mailbox, MsgHandler, StdBoxes (..),
+    defActor, defCtlHandler, mailbox, send, spawnActor,
+    spawnStdActor, stdBoxes)
 
 
 -- * -- Definition of Log Messages
@@ -29,18 +31,31 @@ data LogData =  Debug Text
     deriving (Eq, Ord, Show)
 
 
+-- * -- Console Output Logger
+
+spawnConsoleLogger :: StdBoxes Text -> IO (StdBoxes LogData)
+spawnConsoleLogger output = do
+    boxes <- stdBoxes
+    let handler :: MsgHandler () LogData
+        handler st msg = do 
+          send (messageBox output) (T.pack (show msg))
+          return $ Just st
+    spawnStdActor [(controlBox output)] handler ()
+    return boxes
+
+
 -- * -- Queryable Queue Logger
 
 data LoggerQuery a = PopLogItem (Mailbox (Maybe a))
 
 data LoggerBoxes a = LoggerBoxes {
-    controlBox  :: Mailbox ControlMsg,
-    logBox      :: Mailbox a,
-    queryBox    :: Mailbox (LoggerQuery a)
+    log_ctlBox    :: Mailbox ControlMsg,
+    log_dataBox   :: Mailbox a,
+    log_queryBox  :: Mailbox (LoggerQuery a)
 }
 
-spawnQueueActor :: IO (LoggerBoxes a)
-spawnQueueActor = do
+spawnQueueLogger :: IO (LoggerBoxes a)
+spawnQueueLogger = do
     ctlBox <- mailbox
     logBox <- mailbox
     queryBox <- mailbox
@@ -51,7 +66,7 @@ spawnQueueActor = do
             Nothing -> send mb Nothing >> (return $ Just qu)
             Just (msg, qu') -> send mb (Just msg) >> (return $ Just qu')
     spawnActor defActor [
-        Behv ctlBox defCtlHandler,
+        Behv ctlBox (defCtlHandler []),
         Behv logBox logHandler,
         Behv queryBox queryHandler
       ] (fromList []) 

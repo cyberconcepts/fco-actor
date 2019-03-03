@@ -93,11 +93,14 @@ spawnActor actor behaviours state =
 -- that are created during the call. 
 -- Uses 'defActor' for the receive loop.
 -- Returns a 'StdBoxes' object with the mailboxes created.
-spawnStdActor :: MsgHandler st msg -> st -> IO (StdBoxes msg)
-spawnStdActor handler state = do
+--
+-- The first parameter is a list of mailboxes of
+-- child actors that should also receive the control messages.
+spawnStdActor :: [Mailbox ControlMsg] -> MsgHandler st msg -> st -> IO (StdBoxes msg)
+spawnStdActor children handler state = do
     boxes <- stdBoxes
     spawnActor defActor [
-        Behv (controlBox boxes) defCtlHandler,
+        Behv (controlBox boxes) (defCtlHandler children),
         Behv (messageBox boxes) handler
       ] state
     return boxes
@@ -109,8 +112,13 @@ defActor behvs = whileDataM $ \state -> receive state behvs
 
 -- | A default handler for control messages, returning 'Nothing' when
 -- called with a 'Quit'.
-defCtlHandler :: MsgHandler st ControlMsg
-defCtlHandler _ Quit = return Nothing
+--
+-- The first parameter is a list of mailboxes of
+-- child actors that should also receive the control messages.
+defCtlHandler :: [Mailbox ControlMsg] -> MsgHandler st ControlMsg
+defCtlHandler children _ Quit = do
+    forM children $ \box -> send box Quit
+    return Nothing
 --defCtlHandler state _ = return $ Just state  -- not needed yet
 
 

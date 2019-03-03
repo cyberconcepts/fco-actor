@@ -29,7 +29,7 @@ spec = do
     it "receives and sends back messages" $ do
       myBox <- mailbox
       logger <- stdBoxes -- spawnLogger
-      echo <- spawnStdActor (echoHdlr (messageBox logger)) ()
+      echo <- spawnStdActor [] (echoHdlr (messageBox logger)) ()
       send (messageBox echo) (EchoMsg myBox "My first message")
       receiveMailbox myBox `shouldReturn` "My first message"
 

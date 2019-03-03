@@ -13,10 +13,10 @@
 --
 
 module Control.Concurrent.Actor (
-  -- * Types
-  Actor, Behaviour (..), Behavior, MsgHandler, 
+  -- * Mailbox Types
   Mailbox, StdBoxes (..), stdBoxes, ControlMsg (..),
   -- * Actors and Message Handlers
+  Actor, Behaviour (..), Behavior, MsgHandler, 
   spawnActor, spawnStdActor, defActor, defCtlHandler,
   -- * Basic Messaging Functions
   mailbox, send, receive, receiveMailbox,
@@ -33,28 +33,7 @@ import Control.Concurrent.STM (
 import Control.Monad.STM (retry)
 
 
--- * Types
-
--- | An 'Actor' usually consists of two or more 'Mailbox'es with 
--- corresponding 'Behaviour's and a state.
---
--- Use an empty list of 'Behaviour's for 'Actor's that do not receive
--- any 'Message's.
--- Use '()' as dummy value if there is no state.
-type Actor st = [Behaviour st] -> st -> IO ()
-
--- | A 'Behaviour' is a combination of a 'Mailbox' and a 'MsgHandler'.
--- The 'MsgHandler' will process a message delivered via the 'Mailbox'.
-data Behaviour st = forall a. Behv (Mailbox a) (MsgHandler st a)
-
--- | ... in case you prefer the American spelling.
-type Behavior = Behaviour
-
--- | A message handler is called with the current state of the 'Actor'
--- and a message. It processes the message and returns 
--- a new state value wrapped in 'Just'. 
--- Returns 'Nothing' if the actor should stop receiving.
-type MsgHandler st a = st -> a -> IO (Maybe st)
+-- * Mailbox Types
 
 -- | A 'Mailbox' is a typed channel in which messages are stored,
 -- waiting to be read via a 'receive' or 'receiveMailbox' call.
@@ -83,6 +62,31 @@ data ControlMsg = Quit
 
 -- * Actors and Message Handlers
 
+-- | A 'Behaviour' is a combination of a 'Mailbox' and a 'MsgHandler'.
+-- The 'MsgHandler' will process a message delivered via the 'Mailbox'.
+data Behaviour st = forall a. Behv (Mailbox a) (MsgHandler st a)
+
+-- | ... in case you prefer the American spelling.
+type Behavior = Behaviour
+
+-- | A message handler is called with the current state of the 'Actor'
+-- and a message. It processes the message and returns 
+-- a new state value wrapped in 'Just'. 
+-- Returns 'Nothing' if the actor should stop receiving.
+type MsgHandler st a = st -> a -> IO (Maybe st)
+
+-- | A 'Listener' constitutes the central receive and processing loop of an actor.
+--
+-- It usually consists of two or more 'Behaviour's 
+-- (with corresponding 'Mailboxes's and 'MsgHandler's) and a state
+-- that may be changed during processing.
+--
+-- Use an empty list of 'Behaviour's for 'Listeners's that do not receive
+-- any 'Message's.
+-- Use '()' as dummy value if there is no state.
+type Listener st = [Behaviour st] -> st -> IO ()
+type Actor st = Listener st
+
 -- | Fork a new process using an 'Actor' function with the 'Behaviour's 
 -- and initial state given.
 spawnActor :: Actor st -> [Behaviour st] -> st -> IO ()
@@ -107,7 +111,7 @@ spawnStdActor children handler state = do
 
 -- | A simple receive loop that stops when one of the handlers
 -- invoked returns 'Nothing' instead of 'Just' a new state value.
-defActor :: Actor st
+defActor :: Listener st
 defActor behvs = whileDataM $ \state -> receive state behvs
 
 -- | A default handler for control messages, returning 'Nothing' when

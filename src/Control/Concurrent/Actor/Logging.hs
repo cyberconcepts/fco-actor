@@ -18,7 +18,7 @@ import Deque (Deque, fromList, cons, unsnoc)
 
 import Control.Concurrent.Actor (
     Behaviour (..), ControlMsg, Mailbox, MsgHandler, StdBoxes (..),
-    defActor, defCtlHandler, mailbox, send, spawnActor,
+    defCtlHandler, defListener, mailbox, send, spawnActor,
     spawnStdActor, stdBoxes)
 
 
@@ -50,7 +50,7 @@ data LoggerQuery a = PopLogItem (Mailbox (Maybe a))
 
 data LoggerBoxes a = LoggerBoxes {
     log_ctlBox    :: Mailbox ControlMsg,
-    log_dataBox   :: Mailbox a,
+    log_msgBox    :: Mailbox a,
     log_queryBox  :: Mailbox (LoggerQuery a)
 }
 
@@ -65,7 +65,7 @@ spawnQueueLogger = do
           case unsnoc qu of
             Nothing -> send mb Nothing >> (return $ Just qu)
             Just (msg, qu') -> send mb (Just msg) >> (return $ Just qu')
-    spawnActor defActor [
+    spawnActor defListener [
         Behv ctlBox (defCtlHandler []),
         Behv logBox logHandler,
         Behv queryBox queryHandler

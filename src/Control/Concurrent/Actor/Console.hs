@@ -18,16 +18,17 @@ import BasicPrelude
 import Control.Monad.Extra (whileM)
 
 import Control.Concurrent.Actor (
-    Actor, Behaviour (..), ControlMsg (..), MsgHandler, StdBoxes (..),
-    defActor, send, spawnActor, spawnStdActor, stdBoxes)
+    Behaviour (..), ControlMsg (..), Listener, MsgHandler, StdBoxes (..),
+    defListener, forward, send, spawnActor, spawnStdActor, 
+    stdBoxes, stdListener)
 
 
--- | Create a console input (stdin) 'Actor'. 
+-- | Create a console input (stdin) 'Listener'. 
 --
 -- Sends input lines to the parent 'messageBox'.
 -- When the text "bye" is entered it sends a 'Quit' message
 -- to the parent 'controlBox' and stops the input loop.
-conInActor :: (StdBoxes Text) -> Actor ()
+conInActor :: (StdBoxes Text) -> Listener ()
 conInActor parent _ _ =
     whileM $ getLine >>= \case
         "bye" -> send (controlBox parent) Quit >> return False
@@ -46,12 +47,5 @@ demo = do
     output <- spawnStdActor [] conOutHandler ()
     self <- stdBoxes
     spawnActor (conInActor self) [] ()
-    let ctlHandler _ Quit =
-            send (controlBox output) Quit >> return Nothing
-        inpHandler _ msg = 
-            send (messageBox output) msg >> return (Just ())
-    defActor [
-        Behv (controlBox self) ctlHandler,
-        Behv (messageBox self) inpHandler
-      ] ()
+    stdListener self [controlBox output] (forward [messageBox output]) ()
 

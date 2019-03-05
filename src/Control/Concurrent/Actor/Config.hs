@@ -67,7 +67,7 @@ newtype ConfigResponse = ConfigResponse DataSet
 --
 -- The path is provided via the environment variable "config-fco";
 -- if this is not set the default path "../data/config-fco.yaml" is used.
-spawnConfigDef :: (Actor ConfigStore) (StdBoxes ConfigRequest)
+spawnConfigDef :: (Actor st) (StdBoxes ConfigRequest)
 spawnConfigDef = 
     (liftIO $ lookupEnv "config-fco") >>= \case
       Just path -> spawnConfig path
@@ -75,7 +75,7 @@ spawnConfigDef =
 
 -- | Load config data from the path given into the 'ConfigStore'
 -- and spawn a config actor waiting for a 'ConfigRequest'.
-spawnConfig :: FilePath -> (Actor ConfigStore) (StdBoxes ConfigRequest)
+spawnConfig :: FilePath -> (Actor st) (StdBoxes ConfigRequest)
 spawnConfig path = do
     cfg <- liftIO (loadConfig path) 
     boxes <- stdBoxes

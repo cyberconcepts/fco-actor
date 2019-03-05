@@ -113,7 +113,7 @@ type Listener st = [Behaviour st] -> st -> (Actor st) ()
 
 -- | Fork a new process using an 'Actor' function with the 'Behaviour's 
 -- and initial state given.
-spawnActor :: Context st -> Listener st -> [Behaviour st] -> st -> (Actor st) ()
+spawnActor :: Context st -> Listener st -> [Behaviour st] -> st -> (Actor st0) ()
 spawnActor context listener behaviours state = do
     liftIO $ forkIO $ runActor (listener behaviours state) context
     return ()
@@ -144,7 +144,7 @@ defCtlHandler children state msg =
 -- The first parameter is a list of mailboxes of
 -- child actors that should also receive the control messages.
 spawnStdActor :: Context st -> [Mailbox ControlMsg] -> MsgHandler st msg -> st 
-              -> (Actor st) (StdBoxes msg)
+              -> (Actor st0) (StdBoxes msg)
 spawnStdActor context children handler state = do
     boxes <- stdBoxes
     liftIO $ forkIO $ runActor (stdListener boxes children handler state) context

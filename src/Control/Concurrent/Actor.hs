@@ -16,8 +16,11 @@
 module Control.Concurrent.Actor (
   -- * Mailbox Types
   Mailbox, StdBoxes (..), stdBoxes, ControlMsg (..),
-  -- * Actors and Message Handlers
-  Actor, Behaviour (..), Behavior, Listener, MsgHandler, 
+  -- * Actors and Actor Contexts
+  Actor, Context (..), 
+  defContext, minimalContext, stdContext, runActor,
+  -- * Listeners and Message Handlers
+  Behaviour (..), Behavior, Listener, MsgHandler, 
   forward,
   spawnActor, spawnStdActor, defCtlHandler, defListener, stdListener,
   -- * Basic Messaging Functions
@@ -50,7 +53,7 @@ data StdBoxes msg = StdBoxes {
 }
 
 -- | Instantiate a 'StdBoxes' object with two 'MailBox'es.
-stdBoxes :: IO (StdBoxes msg)
+stdBoxes :: (Actor st) (StdBoxes msg)
 stdBoxes = do
     ctlBox <- mailbox
     msgBox <- mailbox
@@ -65,8 +68,18 @@ data ControlMsg = Quit | Info Text
 -- * Actors and Message Handlers
 
 data Context st = Context {
-    act_state :: st
+    act_initState  :: st,          -- ^initial state
+    act_behaviours :: [Behaviour st],
+    act_listener   :: Listener st,
+    act_children   :: [Mailbox ControlMsg]
 }
+
+defContext state behvs children = Context state behvs defListener children
+minimalContext = defContext () [] []
+stdContext boxes handler state children = defContext state [
+        Behv (controlBox boxes) (defCtlHandler children),
+        Behv (messageBox boxes) handler
+      ] children
 
 newtype Actor st a = Actor (StateT (Context st) IO a)
     deriving (Functor, Applicative, Monad, MonadIO)
@@ -85,7 +98,7 @@ type Behavior = Behaviour
 -- and a message. It processes the message and returns 
 -- a new state value wrapped in 'Just'. 
 -- Returns 'Nothing' if the listener should stop receiving.
-type MsgHandler st a = st -> a -> IO (Maybe st)
+type MsgHandler st a = st -> a -> (Actor st) (Maybe st)
 
 -- | A 'Listener' constitutes the central receive and processing loop of an actor.
 --
@@ -96,13 +109,14 @@ type MsgHandler st a = st -> a -> IO (Maybe st)
 -- Use an empty list of 'Behaviour's for 'Listeners's that do not receive
 -- any 'Message's.
 -- Use '()' as dummy value if there is no state.
-type Listener st = [Behaviour st] -> st -> IO ()
+type Listener st = [Behaviour st] -> st -> (Actor st) ()
 
 -- | Fork a new process using an 'Actor' function with the 'Behaviour's 
 -- and initial state given.
-spawnActor :: Listener st -> [Behaviour st] -> st -> IO ()
-spawnActor listener behaviours state = 
-    forkIO (listener behaviours state) >> return ()
+spawnActor :: Context st -> Listener st -> [Behaviour st] -> st -> (Actor st) ()
+spawnActor context listener behaviours state = do
+    liftIO $ forkIO $ runActor (listener behaviours state) context
+    return ()
 
 -- * Predefined Actors, Listeners and Handlers
 
@@ -129,15 +143,16 @@ defCtlHandler children state msg =
 --
 -- The first parameter is a list of mailboxes of
 -- child actors that should also receive the control messages.
-spawnStdActor :: [Mailbox ControlMsg] -> MsgHandler st msg -> st -> IO (StdBoxes msg)
-spawnStdActor children handler state = do
+spawnStdActor :: Context st -> [Mailbox ControlMsg] -> MsgHandler st msg -> st 
+              -> (Actor st) (StdBoxes msg)
+spawnStdActor context children handler state = do
     boxes <- stdBoxes
-    forkIO $ stdListener boxes children handler state
+    liftIO $ forkIO $ runActor (stdListener boxes children handler state) context
     return boxes
 
 -- | A receive loop listening on the 'StdBoxes' given.
 stdListener :: StdBoxes msg -> [Mailbox ControlMsg] -> MsgHandler st msg -> st 
-            -> IO ()
+            -> (Actor st) ()
 stdListener boxes children handler state = 
     defListener [
         Behv (controlBox boxes) (defCtlHandler children),
@@ -155,21 +170,21 @@ forward boxes state msg = do
 -- * Messaging Functions
 
 -- | Create a new 'Mailbox'.
-mailbox :: IO (Mailbox a)
-mailbox = atomically newTChan
+mailbox :: (Actor st) (Mailbox a)
+mailbox = liftIO $ atomically newTChan
 
 -- | Send a 'Message' to a 'Mailbox'.
-send :: Mailbox a -> a -> IO ()
-send mb msg = atomically $ writeTChan mb msg
+send :: Mailbox a -> a -> (Actor st) ()
+send mb msg = liftIO $ atomically $ writeTChan mb msg
 
 -- | Check for each of the 'Behaviour's specified if there is a 
 -- 'Message' waiting in the 'Mailbox' and process the first one found. 
 -- If there aren't any messages it blocks until one is available.
-receive :: st -> [Behaviour st] -> IO (Maybe st)
+receive :: st -> [Behaviour st] -> (Actor st) (Maybe st)
 receive state behvs =
-    join (atomically $ processBehv state behvs)
+    join (liftIO $ atomically $ processBehv state behvs)
   where
-      processBehv :: st -> [Behaviour st] -> STM (IO (Maybe st))
+      processBehv :: st -> [Behaviour st] -> STM ((Actor st) (Maybe st))
       processBehv _ [] = retry
       processBehv state (Behv mb handler : rest) =
         tryReadTChan mb >>= \case
@@ -180,7 +195,7 @@ receive state behvs =
 -- only be used in very special cases (or for testing); 
 -- in most cases you will want to use 'receive' instead.
 receiveMailbox :: Mailbox a -> IO a
-receiveMailbox = atomically . readTChan
+receiveMailbox = liftIO . atomically . readTChan
 
 
 -- * Utility Functions

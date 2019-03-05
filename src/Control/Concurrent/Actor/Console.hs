@@ -18,9 +18,10 @@ import BasicPrelude
 import Control.Monad.Extra (whileM)
 
 import Control.Concurrent.Actor (
-    Behaviour (..), ControlMsg (..), Listener, MsgHandler, StdBoxes (..),
-    defListener, forward, send, spawnActor, spawnStdActor, 
-    stdBoxes, stdListener)
+    Behaviour (..), Context, ControlMsg (..), 
+    Listener, MsgHandler, StdBoxes (..),
+    defListener, forward, minimalContext, runActor, send, 
+    spawnActor, spawnStdActor, stdBoxes, stdListener)
 
 
 -- | Create a console input (stdin) 'Listener'. 
@@ -43,9 +44,10 @@ conOutHandler _ line = putStrLn line >> return (Just ())
 -- a console output actor that uses 'conOutHandler'.
 -- Stops when "bye" is entered.
 demo :: IO ()
-demo = do
-    output <- spawnStdActor [] conOutHandler ()
-    self <- stdBoxes
-    spawnActor (conInActor self) [] ()
-    stdListener self [controlBox output] (forward [messageBox output]) ()
-
+demo = runActor demoActor minimalContext
+  where 
+    demoActor = do
+        output <- spawnStdActor minimalContext [] conOutHandler ()
+        self <- stdBoxes
+        spawnActor minimalContext (conInActor self) [] ()
+        stdListener self [controlBox output] (forward [messageBox output]) ()

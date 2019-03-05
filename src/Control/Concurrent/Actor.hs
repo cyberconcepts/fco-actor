@@ -194,7 +194,7 @@ receive state behvs =
 -- | Wait for a 'Message' in the 'Mailbox' given. This function should
 -- only be used in very special cases (or for testing); 
 -- in most cases you will want to use 'receive' instead.
-receiveMailbox :: Mailbox a -> IO a
+receiveMailbox :: Mailbox a -> Actor st a
 receiveMailbox = liftIO . atomically . readTChan
 
 

@@ -20,18 +20,22 @@ spec :: Spec
 spec = do
 
   describe "mailbox" $ do
-    it "accepts and delivers a message" $ do
-      mb <- mailbox
-      send mb 7 `shouldReturn` ()
-      receiveMailbox mb `shouldReturn` 7
+    it "accepts and delivers a message" $
+      runActor (do
+          mb <- mailbox
+          send mb 7
+          receiveMailbox mb) minimalContext
+      `shouldReturn` 7
 
   describe "standard actor with 'echo' handler" $ do
-    it "receives and sends back messages" $ do
-      myBox <- mailbox
-      logger <- stdBoxes -- spawnLogger
-      echo <- spawnStdActor [] (echoHdlr (messageBox logger)) ()
-      send (messageBox echo) (EchoMsg myBox "My first message")
-      receiveMailbox myBox `shouldReturn` "My first message"
+    it "receives and sends back messages" $
+      runActor (do
+          myBox <- mailbox
+          logger <- stdBoxes -- spawnLogger
+          echo <- spawnStdActor minimalContext [] (echoHdlr (messageBox logger)) ()
+          send (messageBox echo) (EchoMsg myBox "My first message")
+          receiveMailbox myBox) minimalContext
+      `shouldReturn` "My first message"
 
 
 -- implementation of messages, actors, handlers, etc

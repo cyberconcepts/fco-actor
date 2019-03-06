@@ -18,11 +18,10 @@ module Control.Concurrent.Actor (
   Mailbox, StdBoxes (..), stdBoxes, ControlMsg (..),
   -- * Actors and Actor Contexts
   Actor, Context (..), 
-  defContext, minimalContext, stdContext, runActor,
+  ctxGet, defContext, minimalContext, stdContext, runActor,
   -- * Listeners and Message Handlers
   Behaviour (..), Behavior, Listener, MsgHandler, 
-  forward,
-  spawnActor, spawnStdActor, defCtlHandler, defListener, stdListener,
+  forward, spawnActor, defCtlHandler, defListener,
   -- * Basic Messaging Functions
   mailbox, send, receive, receiveMailbox,
   -- * Utility Functions
@@ -36,7 +35,7 @@ import Control.Concurrent.STM (
     STM, TChan,
     atomically, newTChan, readTChan, tryReadTChan, writeTChan)
 import Control.Monad.STM (retry)
-import Control.Monad.Trans.State (StateT, evalStateT)
+import Control.Monad.Trans.Reader (ReaderT, asks, runReaderT)
 
 
 -- * Mailbox Types
@@ -53,7 +52,7 @@ data StdBoxes msg = StdBoxes {
 }
 
 -- | Instantiate a 'StdBoxes' object with two 'MailBox'es.
-stdBoxes :: (Actor st) (StdBoxes msg)
+stdBoxes :: IO (StdBoxes msg)
 stdBoxes = do
     ctlBox <- mailbox
     msgBox <- mailbox
@@ -65,8 +64,18 @@ stdBoxes = do
 data ControlMsg = Quit | Info Text
 
 
--- * Actors and Message Handlers
+-- * Actors, Listeners, Message Handlers
 
+-- | A 'Context' constitutes the properties of the receive and processing 
+-- loop of an actor.
+--
+-- It usually consists of two or more 'Behaviour's 
+-- (with corresponding 'Mailboxes's and 'MsgHandler's) and a state
+-- that may be changed during processing.
+--
+-- Use an empty list of 'Behaviour's for 'Listeners's that do not receive
+-- any 'Message's.
+-- Use '()' as dummy value if there is no state.
 data Context st = Context {
     act_initState  :: st,          -- ^initial state
     act_behaviours :: [Behaviour st],
@@ -76,16 +85,22 @@ data Context st = Context {
 
 defContext state behvs children = Context state behvs defListener children
 minimalContext = defContext () [] []
-stdContext boxes handler state children = defContext state [
-        Behv (controlBox boxes) (defCtlHandler children),
-        Behv (messageBox boxes) handler
-      ] children
+stdContext handler state children = do
+      boxes <- liftIO stdBoxes
+      let ctx = defContext state [
+            Behv (controlBox boxes) defCtlHandler,
+            Behv (messageBox boxes) handler
+            ] children
+      return (boxes, ctx)
 
-newtype Actor st a = Actor (StateT (Context st) IO a)
+newtype Actor st a = Actor (ReaderT (Context st) IO a)
     deriving (Functor, Applicative, Monad, MonadIO)
 
 runActor :: Actor st a -> Context st -> IO a
-runActor (Actor act) ctx = evalStateT act ctx
+runActor (Actor act) ctx = runReaderT act ctx
+
+ctxGet :: (Context st -> a) -> Actor st a
+ctxGet = Actor . asks
 
 -- | A 'Behaviour' is a combination of a 'Mailbox' and a 'MsgHandler'.
 -- The 'MsgHandler' will process a message delivered via the 'Mailbox'.
@@ -100,22 +115,14 @@ type Behavior = Behaviour
 -- Returns 'Nothing' if the listener should stop receiving.
 type MsgHandler st a = st -> a -> (Actor st) (Maybe st)
 
--- | A 'Listener' constitutes the central receive and processing loop of an actor.
---
--- It usually consists of two or more 'Behaviour's 
--- (with corresponding 'Mailboxes's and 'MsgHandler's) and a state
--- that may be changed during processing.
---
--- Use an empty list of 'Behaviour's for 'Listeners's that do not receive
--- any 'Message's.
--- Use '()' as dummy value if there is no state.
-type Listener st = [Behaviour st] -> st -> (Actor st) ()
+-- | A 'Listener' is the central receive and processing loop of an actor.
+type Listener st = Actor st ()
 
 -- | Fork a new process using an 'Actor' function with the 'Behaviour's 
 -- and initial state given.
-spawnActor :: Context st -> Listener st -> [Behaviour st] -> st -> (Actor st0) ()
-spawnActor context listener behaviours state = do
-    liftIO $ forkIO $ runActor (listener behaviours state) context
+spawnActor :: Context st -> Listener st -> IO ()
+spawnActor context listener = do
+    liftIO $ forkIO $ runActor listener context
     return ()
 
 -- * Predefined Actors, Listeners and Handlers
@@ -123,41 +130,20 @@ spawnActor context listener behaviours state = do
 -- | A simple receive loop that stops when one of the handlers
 -- invoked returns 'Nothing' instead of 'Just' a new state value.
 defListener :: Listener st
-defListener behvs = whileDataM $ \state -> receive state behvs
+defListener = do
+    initState <- ctxGet act_initState
+    behvs <- ctxGet act_behaviours
+    (whileDataM $ \state -> receive state behvs) initState
 
 -- | A default handler for control messages, returning 'Nothing' when
 -- called with a 'Quit'.
---
--- The first parameter is a list of mailboxes of
--- child actors that should also receive the control messages.
-defCtlHandler :: [Mailbox ControlMsg] -> MsgHandler st ControlMsg
-defCtlHandler children state Quit =
-    forward children state Quit >> return Nothing
-defCtlHandler children state msg =
-    forward children state msg
-
--- | Fork a simple standard 'Actor' process with two standard 'Mailbox'es 
--- that are created during the call. 
--- Uses 'defListener' for the receive loop.
--- Returns a 'StdBoxes' object with the mailboxes created.
---
--- The first parameter is a list of mailboxes of
--- child actors that should also receive the control messages.
-spawnStdActor :: Context st -> [Mailbox ControlMsg] -> MsgHandler st msg -> st 
-              -> (Actor st0) (StdBoxes msg)
-spawnStdActor context children handler state = do
-    boxes <- stdBoxes
-    liftIO $ forkIO $ runActor (stdListener boxes children handler state) context
-    return boxes
-
--- | A receive loop listening on the 'StdBoxes' given.
-stdListener :: StdBoxes msg -> [Mailbox ControlMsg] -> MsgHandler st msg -> st 
-            -> (Actor st) ()
-stdListener boxes children handler state = 
-    defListener [
-        Behv (controlBox boxes) (defCtlHandler children),
-        Behv (messageBox boxes) handler
-      ] state
+defCtlHandler :: MsgHandler st ControlMsg
+defCtlHandler state msg = do
+    children <- ctxGet act_children
+    let r = forward children state msg
+    case msg of
+      Quit -> return Nothing
+      _    -> r
 
 -- | A 'MsgHandler' that just sends the message received 
 -- to the 'Mailbox'es given. Lets the state unchanged.
@@ -170,8 +156,8 @@ forward boxes state msg = do
 -- * Messaging Functions
 
 -- | Create a new 'Mailbox'.
-mailbox :: (Actor st) (Mailbox a)
-mailbox = liftIO $ atomically newTChan
+mailbox :: IO (Mailbox a)
+mailbox = atomically newTChan
 
 -- | Send a 'Message' to a 'Mailbox'.
 send :: Mailbox a -> a -> (Actor st) ()

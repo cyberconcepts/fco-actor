@@ -21,7 +21,7 @@ import Control.Concurrent.Actor (
     Behaviour (..), ControlMsg, Mailbox, MsgHandler, StdBoxes (..),
     defContext, minimalContext,
     defCtlHandler, defListener, mailbox, send, spawnActor,
-    spawnStdActor, stdBoxes)
+    stdBoxes, stdContext)
 
 
 -- * -- Definition of Log Messages
@@ -35,14 +35,14 @@ data LogData =  Debug Text
 
 -- * -- Console Output Logger
 
-spawnConsoleLogger :: StdBoxes Text -> (Actor ()) (StdBoxes LogData)
+spawnConsoleLogger :: StdBoxes Text -> IO (StdBoxes LogData)
 spawnConsoleLogger output = do
-    boxes <- stdBoxes
     let handler :: MsgHandler () LogData
         handler st msg = do 
           send (messageBox output) (T.pack (show msg))
           return $ Just st
-    spawnStdActor minimalContext [(controlBox output)] handler ()
+    (boxes, ctx) <- stdContext handler () [(controlBox output)]
+    spawnActor ctx defListener
     return boxes
 
 
@@ -56,7 +56,7 @@ data LoggerBoxes a = LoggerBoxes {
     log_queryBox  :: Mailbox (LoggerQuery a)
 }
 
-spawnQueueLogger :: (Actor (Deque a)) (LoggerBoxes a)
+spawnQueueLogger :: IO (LoggerBoxes a)
 spawnQueueLogger = do
     ctlBox <- mailbox
     logBox <- mailbox
@@ -68,13 +68,9 @@ spawnQueueLogger = do
             Nothing -> send mb Nothing >> (return $ Just qu)
             Just (msg, qu') -> send mb (Just msg) >> (return $ Just qu')
         ctx = defContext (fromList []) [
-                      Behv ctlBox (defCtlHandler []),
+                      Behv ctlBox defCtlHandler,
                       Behv logBox logHandler,
                       Behv queryBox queryHandler
                     ] []
-    spawnActor ctx defListener [
-        Behv ctlBox (defCtlHandler []),
-        Behv logBox logHandler,
-        Behv queryBox queryHandler
-      ] (fromList []) 
+    spawnActor ctx defListener
     return boxes

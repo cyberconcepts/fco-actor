@@ -17,11 +17,10 @@ import BasicPrelude
 
 import Control.Monad.Extra (whileM)
 
-import Control.Concurrent.Actor (
-    Behaviour (..), Context, ControlMsg (..), 
-    Listener, MsgHandler, StdBoxes (..),
+import Control.Concurrent.Actor ( 
+    ControlMsg (..), Listener, MsgHandler, StdBoxes (..),
     defListener, forward, minimalContext, runActor, send, 
-    spawnActor, spawnStdActor, stdBoxes, stdListener)
+    spawnActor, stdContext)
 
 
 -- | Create a console input (stdin) 'Listener'. 
@@ -30,7 +29,7 @@ import Control.Concurrent.Actor (
 -- When the text "bye" is entered it sends a 'Quit' message
 -- to the parent 'controlBox' and stops the input loop.
 conInActor :: (StdBoxes Text) -> Listener ()
-conInActor parent _ _ =
+conInActor parent =
     whileM $ getLine >>= \case
         "bye" -> send (controlBox parent) Quit >> return False
         line -> send (messageBox parent) line >> return True
@@ -44,10 +43,11 @@ conOutHandler _ line = putStrLn line >> return (Just ())
 -- a console output actor that uses 'conOutHandler'.
 -- Stops when "bye" is entered.
 demo :: IO ()
-demo = runActor demoActor minimalContext
-  where 
-    demoActor = do
-        output <- spawnStdActor minimalContext [] conOutHandler ()
-        self <- stdBoxes
-        spawnActor minimalContext (conInActor self) [] ()
-        stdListener self [controlBox output] (forward [messageBox output]) ()
+demo = do
+    (output, outCtx) <- stdContext conOutHandler () []
+    (self, selfCtx) <- stdContext 
+                            (forward [messageBox output]) ()
+                            [controlBox output]
+    spawnActor outCtx defListener
+    spawnActor minimalContext (conInActor self)
+    runActor defListener selfCtx

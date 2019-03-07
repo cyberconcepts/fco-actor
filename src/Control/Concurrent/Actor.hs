@@ -19,9 +19,10 @@ module Control.Concurrent.Actor (
   -- * Actors and Actor Contexts
   Actor, Context (..), 
   ctxGet, defContext, minimalContext, stdContext, runActor,
+  spawnActor, spawnStdActor,
   -- * Listeners and Message Handlers
   Behaviour (..), Behavior, Listener, MsgHandler, 
-  forward, spawnActor, defCtlHandler, defListener,
+  defCtlHandler, defListener, forward,
   -- * Basic Messaging Functions
   mailbox, send, receive, receiveMailbox,
   -- * Utility Functions
@@ -124,6 +125,12 @@ spawnActor :: Context st -> Listener st -> IO ()
 spawnActor context listener = do
     liftIO $ forkIO $ runActor listener context
     return ()
+
+spawnStdActor :: MsgHandler st a -> st -> [Mailbox ControlMsg] -> IO (StdBoxes a)
+spawnStdActor handler state children = do
+    (boxes, ctx) <- stdContext handler state children
+    spawnActor ctx defListener
+    return boxes
 
 -- * Predefined Actors, Listeners and Handlers
 

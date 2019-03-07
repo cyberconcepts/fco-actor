@@ -31,8 +31,7 @@ spec = do
     it "receives and sends back messages" $ do
       myBox <- mailbox
       logger <- stdBoxes -- spawnLogger
-      (echo, ctx) <- stdContext (echoHdlr (messageBox logger)) () []
-      spawnActor ctx defListener
+      echo <- spawnStdActor (echoHdlr (messageBox logger)) () []
       runActor (do 
           send (messageBox echo) (EchoMsg myBox "My first message")
           receiveMailbox myBox) minimalContext

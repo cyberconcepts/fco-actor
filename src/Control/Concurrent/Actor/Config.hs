@@ -29,7 +29,7 @@ import System.Environment (lookupEnv)
 
 import Control.Concurrent.Actor (
     Actor, Context, Mailbox, MsgHandler, StdBoxes,
-    defListener, runActor, send, spawnActor, stdContext)
+    runActor, send, spawnActor, spawnStdActor)
 
 
 -- Configuration Store Types
@@ -78,9 +78,7 @@ spawnConfigDef =
 spawnConfig :: FilePath -> IO (StdBoxes ConfigRequest)
 spawnConfig path = do
     cfg <- loadConfig path
-    (boxes, ctx) <- stdContext configHandler cfg []
-    spawnActor ctx defListener
-    return boxes
+    spawnStdActor configHandler cfg []
 
 configHandler :: MsgHandler ConfigStore ConfigRequest
 configHandler cfgData (ConfigQuery respbox key) = do

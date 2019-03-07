@@ -20,8 +20,7 @@ import Control.Concurrent.Actor (
     Actor,
     Behaviour (..), ControlMsg, Mailbox, MsgHandler, StdBoxes (..),
     defContext, minimalContext,
-    defCtlHandler, defListener, mailbox, send, spawnActor,
-    stdBoxes, stdContext)
+    defCtlHandler, defListener, mailbox, send, spawnActor, spawnStdActor)
 
 
 -- * -- Definition of Log Messages
@@ -41,9 +40,7 @@ spawnConsoleLogger output = do
         handler st msg = do 
           send (messageBox output) (T.pack (show msg))
           return $ Just st
-    (boxes, ctx) <- stdContext handler () [(controlBox output)]
-    spawnActor ctx defListener
-    return boxes
+    spawnStdActor handler () [(controlBox output)]
 
 
 -- * -- Queryable Queue Logger

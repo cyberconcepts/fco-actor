@@ -11,7 +11,7 @@
 -- Simple console input and output actors.
 --
 
-module Control.Concurrent.Actor.Console (conInActor, conOutHandler, demo) where
+module Control.Concurrent.Actor.Console (spawnConIn, spawnConOut, demo) where
 
 import BasicPrelude
 
@@ -22,6 +22,15 @@ import Control.Concurrent.Actor (
     defListener, forward, minimalContext, runActor, send, 
     spawnActor, spawnStdActor, stdContext)
 
+
+-- | Spawn a console input actor that sends text entered to the 
+-- parent actor given. 
+spawnConIn :: (StdBoxes Text) -> IO ()
+spawnConIn parent = spawnActor (conInActor parent) minimalContext
+
+-- | Spawn a console output actor.
+spawnConOut :: IO (StdBoxes Text)
+spawnConOut = spawnStdActor conOutHandler () []
 
 -- | Create a console input (stdin) 'Listener'. 
 --
@@ -44,9 +53,9 @@ conOutHandler _ line = putStrLn line >> return (Just ())
 -- Stops when "bye" is entered.
 demo :: IO ()
 demo = do
-    output <- spawnStdActor conOutHandler () []
+    output <- spawnConOut
     (self, selfCtx) <- stdContext 
                           (forward [messageBox output]) ()
                           [controlBox output]
-    spawnActor minimalContext (conInActor self)
+    spawnConIn self
     runActor defListener selfCtx

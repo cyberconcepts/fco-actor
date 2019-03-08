@@ -28,8 +28,8 @@ import System.Directory (doesFileExist, findFile)
 import System.Environment (lookupEnv)
 
 import Control.Concurrent.Actor (
-    Actor, Context, Mailbox, MsgHandler, StdBoxes,
-    runActor, send, spawnActor, spawnStdActor)
+    Mailbox, MsgHandler, StdBoxes,
+    send, spawnStdActor)
 
 
 -- Configuration Store Types

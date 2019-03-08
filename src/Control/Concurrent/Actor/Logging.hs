@@ -20,7 +20,8 @@ import Control.Concurrent.Actor (
     Actor,
     Behaviour (..), ControlMsg, Mailbox, MsgHandler, StdBoxes (..),
     defContext, minimalContext,
-    defCtlHandler, defListener, mailbox, send, spawnActor, spawnStdActor)
+    defCtlHandler, mailbox, send, spawnDefActor, spawnStdActor)
+import Control.Concurrent.Actor.Console (spawnConOut)
 
 
 -- * -- Definition of Log Messages
@@ -34,8 +35,9 @@ data LogData =  Debug Text
 
 -- * -- Console Output Logger
 
-spawnConsoleLogger :: StdBoxes Text -> IO (StdBoxes LogData)
-spawnConsoleLogger output = do
+spawnConsoleLogger :: IO (StdBoxes LogData)
+spawnConsoleLogger = do
+    output <- spawnConOut
     let handler :: MsgHandler () LogData
         handler st msg = do 
           send (messageBox output) (T.pack (show msg))
@@ -69,5 +71,5 @@ spawnQueueLogger = do
                       Behv logBox logHandler,
                       Behv queryBox queryHandler
                     ] []
-    spawnActor ctx defListener
+    spawnDefActor ctx
     return boxes

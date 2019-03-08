@@ -8,6 +8,7 @@ import Control.Exception (evaluate)
 import BasicPrelude
 
 import Control.Concurrent.Actor
+import Control.Concurrent.Actor.Logging
 
 
 -- `main` is here so that this module can be run from GHCi on its own.  It is
@@ -30,8 +31,8 @@ spec = do
   describe "standard actor with 'echo' handler" $ do
     it "receives and sends back messages" $ do
       myBox <- mailbox
-      logger <- stdBoxes -- spawnLogger
-      echo <- spawnStdActor (echoHdlr (messageBox logger)) () []
+      logger <- spawnQueueLogger
+      echo <- spawnStdActor (echoHdlr (log_msgBox logger)) () []
       runActor (do 
           send (messageBox echo) (EchoMsg myBox "My first message")
           receiveMailbox myBox) minimalContext

@@ -19,7 +19,7 @@ module Control.Concurrent.Actor (
   -- * Actors and Actor Contexts
   Actor, Context (..), 
   ctxGet, defContext, minimalContext, stdContext, runActor,
-  spawnActor, spawnStdActor,
+  spawnActor, spawnDefActor, spawnStdActor,
   -- * Listeners and Message Handlers
   Behaviour (..), Behavior, Listener, MsgHandler, 
   defCtlHandler, defListener, forward,
@@ -45,7 +45,7 @@ import Control.Monad.Trans.Reader (ReaderT, asks, runReaderT)
 -- waiting to be read via a 'receive' or 'receiveMailbox' call.
 type Mailbox a = TChan a
 
--- | A typical 'Listener' needs two 'Mailbox'es, one for receiving control messages,
+-- | A typical 'Actor' needs two 'Mailbox'es, one for receiving control messages,
 -- and one for regular messages with a payload.
 data StdBoxes msg = StdBoxes {
     controlBox :: Mailbox ControlMsg,
@@ -71,21 +71,30 @@ data ControlMsg = Quit | Info Text
 -- loop of an actor.
 --
 -- It usually consists of two or more 'Behaviour's 
--- (with corresponding 'Mailboxes's and 'MsgHandler's) and a state
--- that may be changed during processing.
+-- (with corresponding 'Mailboxes's and 'MsgHandler's) and an 
+-- initial state (i.e. a state that may be changed
+-- by the listener during processing.
 --
 -- Use an empty list of 'Behaviour's for 'Listeners's that do not receive
 -- any 'Message's.
 -- Use '()' as dummy value if there is no state.
 data Context st = Context {
-    act_initState  :: st,          -- ^initial state
-    act_behaviours :: [Behaviour st],
-    act_listener   :: Listener st,
-    act_children   :: [Mailbox ControlMsg]
+    act_initState  :: st,                   -- ^ Initial state
+    act_behaviours :: [Behaviour st],       -- ^ List of behaviours
+    act_children   :: [Mailbox ControlMsg]  -- ^ Children's control mailboxes
 }
 
-defContext state behvs children = Context state behvs defListener children
+-- | A default 'Context' for an 'Actor' with the state, 
+-- behaviours, and children given.
+defContext state behvs children = Context state behvs children
+
+-- | A minimal 'Context' for an 'Actor' with no state, 
+-- no behaviours, no children.
 minimalContext = defContext () [] []
+
+-- | Set up a standard 'Context' with two mailboxes ('StdBoxes').
+-- using the message handler, initial state, 
+-- and mailboxes of child actors given.
 stdContext handler state children = do
       boxes <- liftIO stdBoxes
       let ctx = defContext state [
@@ -94,12 +103,16 @@ stdContext handler state children = do
             ] children
       return (boxes, ctx)
 
+-- | The 'Actor' monad that provides access to actor config data
+-- via the wrapped 'Context' object.
 newtype Actor st a = Actor (ReaderT (Context st) IO a)
     deriving (Functor, Applicative, Monad, MonadIO)
 
+-- | Run an 'Actor' providing it with the 'Context' given.
 runActor :: Actor st a -> Context st -> IO a
 runActor (Actor act) ctx = runReaderT act ctx
 
+-- | Query the 'Context' of the current 'Actor' monad.
 ctxGet :: (Context st -> a) -> Actor st a
 ctxGet = Actor . asks
 
@@ -111,7 +124,9 @@ data Behaviour st = forall a. Behv (Mailbox a) (MsgHandler st a)
 type Behavior = Behaviour
 
 -- | A message handler is called with the current state of the 'Listener'
--- and a message. It processes the message and returns 
+-- and a message. 
+--
+-- It processes the message and returns 
 -- a new state value wrapped in 'Just'. 
 -- Returns 'Nothing' if the listener should stop receiving.
 type MsgHandler st a = st -> a -> (Actor st) (Maybe st)
@@ -119,17 +134,23 @@ type MsgHandler st a = st -> a -> (Actor st) (Maybe st)
 -- | A 'Listener' is the central receive and processing loop of an actor.
 type Listener st = Actor st ()
 
--- | Fork a new process using an 'Actor' function with the 'Behaviour's 
--- and initial state given.
-spawnActor :: Context st -> Listener st -> IO ()
-spawnActor context listener = do
-    liftIO $ forkIO $ runActor listener context
+-- | Spawn an 'Actor' in a new thread using 
+-- the 'Listener' and the 'Context' given.
+spawnActor :: Listener st -> Context st -> IO ()
+spawnActor listener context = do
+    forkIO $ runActor listener context
     return ()
 
+-- | Spawn an 'Actor' using the default listener 'defListener'
+spawnDefActor :: Context st -> IO ()
+spawnDefActor = spawnActor defListener
+
+-- | Spawn an 'Actor' using a standard set of 'Mailbox'es and
+-- 'Behaviour's. Return the 'StdBoxes' object created.
 spawnStdActor :: MsgHandler st a -> st -> [Mailbox ControlMsg] -> IO (StdBoxes a)
 spawnStdActor handler state children = do
     (boxes, ctx) <- stdContext handler state children
-    spawnActor ctx defListener
+    spawnActor defListener ctx
     return boxes
 
 -- * Predefined Actors, Listeners and Handlers
@@ -143,7 +164,7 @@ defListener = do
     (whileDataM $ \state -> receive state behvs) initState
 
 -- | A default handler for control messages, returning 'Nothing' when
--- called with a 'Quit'.
+-- called with a 'Quit' message.
 defCtlHandler :: MsgHandler st ControlMsg
 defCtlHandler state msg = do
     children <- ctxGet act_children

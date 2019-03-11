@@ -93,9 +93,9 @@ data ControlMsg = Quit | Info Text
 -- any 'Message's.
 -- Use '()' as dummy value if there is no state.
 data Context st = Context {
-    act_initState  :: st,                   -- ^ Initial state
-    act_behaviours :: [Behaviour st],       -- ^ List of behaviours
-    act_children   :: [Mailbox ControlMsg]  -- ^ Children's control mailboxes
+    act_initState  :: st,                   -- ^ Initial state.
+    act_behaviours :: [Behaviour st],       -- ^ List of behaviours.
+    act_children   :: [Mailbox ControlMsg]  -- ^ Children's control mailboxes.
 }
 
 -- | A default 'Context' for an 'Actor' with the state, 
@@ -111,7 +111,7 @@ minimalContext = defContext () [] []
 -- and mailboxes of child actors given.
 stdContext handler state children = do
       boxes <- liftIO stdBoxes
-      let ctx = defContext state (stdBehvs boxes handler) children
+      let ctx = defContext state (stdBehvs boxes handler []) children
       return (boxes, ctx)
 
 -- | The 'Actor' monad that provides access to actor config data
@@ -136,11 +136,15 @@ type Behavior = Behaviour
 
 -- | The standard 'Behaviours' setting for the two 
 -- standard 'Mailboxes'.
-stdBehvs :: Mailboxes bx => bx a -> MsgHandler st a -> [Behaviour st]
-stdBehvs boxes handler = [
-    Behv (controlBox boxes) defCtlHandler,
-    Behv (messageBox boxes) handler
-  ]
+stdBehvs :: Mailboxes bx
+         => bx a            -- ^ Mailboxes, i.e. a 'Mailboxes' instance.
+         -> MsgHandler st a -- ^ The message handler for the regular mailbox.
+         -> [Behaviour st]  -- ^ A list of additional behaviours, maybe empty.
+         -> [Behaviour st]  -- ^ The resulting list of behaviours.
+stdBehvs boxes handler addBehvs = 
+    Behv (controlBox boxes) defCtlHandler :
+    Behv (messageBox boxes) handler : 
+    addBehvs
 
 -- | A message handler is called with the current state of the 'Listener'
 -- and a message. 
@@ -167,10 +171,10 @@ spawnDefActor = spawnActor defListener
 -- | Spawn an 'Actor' using a standard set of 'Mailboxes' and
 -- 'Behaviour's. 
 -- Return the 
-spawnStdActor :: MsgHandler st a      -- ^ Message handler for regular mailbox
-              -> st                   -- ^ Initial state
-              -> [Mailbox ControlMsg] -- ^ Control boxes of children
-              -> IO (StdBoxes a)      -- ^ 'StdBoxes' object created
+spawnStdActor :: MsgHandler st a      -- ^ Message handler for regular mailbox.
+              -> st                   -- ^ Initial state.
+              -> [Mailbox ControlMsg] -- ^ Control boxes of children.
+              -> IO (StdBoxes a)      -- ^ 'StdBoxes' object created.
 spawnStdActor handler state children = do
     (boxes, ctx) <- stdContext handler state children
     spawnDefActor ctx

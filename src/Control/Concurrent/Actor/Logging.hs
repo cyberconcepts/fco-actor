@@ -14,18 +14,18 @@ module Control.Concurrent.Actor.Logging where
 
 import BasicPrelude
 import qualified Data.Text as T
-import Deque (Deque, fromList, cons, unsnoc)
+import Deque (fromList, cons, unsnoc)
 
 import Control.Concurrent.Actor (
     Actor,
     Behaviour (..), ControlMsg, Mailbox, Mailboxes, MsgHandler, StdBoxes,
     controlBox, messageBox,
-    dummyHandler, defContext, minimalContext,
-    defCtlHandler, mailbox, send, spawnDefActor, spawnStdActor)
+    dummyHandler, defContext,
+    defCtlHandler, mailbox, send, spawnDefActor, spawnStdActor, stdBehvs)
 import Control.Concurrent.Actor.Console (spawnConOut)
 
 
--- * -- Definition of Log Messages
+-- * Definition of Log Messages
 
 data LogData =  Debug Text
               | Info Text
@@ -34,13 +34,13 @@ data LogData =  Debug Text
     deriving (Eq, Ord, Show)
 
 
--- * -- Null Logger
+-- * Null Logger
 
 spawnNullLogger :: IO (StdBoxes LogData)
 spawnNullLogger =  spawnStdActor dummyHandler () []
 
 
--- * -- Console Output Logger
+-- * Console Output Logger
 
 spawnConsoleLogger :: IO (StdBoxes LogData)
 spawnConsoleLogger = do
@@ -52,7 +52,7 @@ spawnConsoleLogger = do
     spawnStdActor handler () [(controlBox output)]
 
 
--- * -- Queryable Queue Logger
+-- * Queryable Queue Logger
 
 data LoggerQuery a = PopLogItem (Mailbox (Maybe LogData))
 
@@ -77,10 +77,7 @@ spawnQueueLogger = do
           case unsnoc qu of
             Nothing -> send mb Nothing >> (return $ Just qu)
             Just (msg, qu') -> send mb (Just msg) >> (return $ Just qu')
-        ctx = defContext (fromList []) [
-                      Behv ctlBox defCtlHandler,
-                      Behv logBox logHandler,
-                      Behv queryBox queryHandler
-                    ] []
+        behvs = stdBehvs boxes logHandler [Behv queryBox queryHandler]
+        ctx = defContext (fromList []) behvs []
     spawnDefActor ctx
     return boxes

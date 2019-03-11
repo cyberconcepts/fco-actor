@@ -18,8 +18,9 @@ import Deque (Deque, fromList, cons, unsnoc)
 
 import Control.Concurrent.Actor (
     Actor,
-    Behaviour (..), ControlMsg, Mailbox, MsgHandler, StdBoxes (..),
-    defContext, minimalContext,
+    Behaviour (..), ControlMsg, Mailbox, Mailboxes, MsgHandler, StdBoxes,
+    controlBox, messageBox,
+    dummyHandler, defContext, minimalContext,
     defCtlHandler, mailbox, send, spawnDefActor, spawnStdActor)
 import Control.Concurrent.Actor.Console (spawnConOut)
 
@@ -31,6 +32,12 @@ data LogData =  Debug Text
               | Warning Int Text
               | Error Int Text
     deriving (Eq, Ord, Show)
+
+
+-- * -- Null Logger
+
+spawnNullLogger :: IO (StdBoxes LogData)
+spawnNullLogger =  spawnStdActor dummyHandler () []
 
 
 -- * -- Console Output Logger
@@ -49,13 +56,17 @@ spawnConsoleLogger = do
 
 data LoggerQuery a = PopLogItem (Mailbox (Maybe LogData))
 
-data LoggerBoxes = LoggerBoxes {
+data LoggerBoxes a = LoggerBoxes {
     log_ctlBox    :: Mailbox ControlMsg,
-    log_msgBox    :: Mailbox LogData,
+    log_msgBox    :: Mailbox a,
     log_queryBox  :: Mailbox (LoggerQuery LogData)
 }
 
-spawnQueueLogger :: IO LoggerBoxes
+instance Mailboxes LoggerBoxes where
+    controlBox = log_ctlBox
+    messageBox = log_msgBox
+
+spawnQueueLogger :: IO (LoggerBoxes LogData)
 spawnQueueLogger = do
     ctlBox <- mailbox
     logBox <- mailbox

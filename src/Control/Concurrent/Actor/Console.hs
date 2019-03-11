@@ -18,7 +18,8 @@ import BasicPrelude
 import Control.Monad.Extra (whileM)
 
 import Control.Concurrent.Actor ( 
-    ControlMsg (..), Listener, MsgHandler, StdBoxes (..),
+    ControlMsg (..), Listener, MsgHandler, StdBoxes,
+    controlBox, messageBox,
     defListener, forward, minimalContext, runActor, send, 
     spawnActor, spawnStdActor, stdContext)
 
@@ -49,7 +50,7 @@ conOutHandler _ line = putStrLn line >> return (Just ())
 
 -- | An example main function that echos text from console input 
 -- (received via the 'conInLoop' actor) to output by sending it to
--- a console output actor that uses 'conOutHandler'.
+-- a console output actor.
 -- Stops when "bye" is entered.
 demo :: IO ()
 demo = do

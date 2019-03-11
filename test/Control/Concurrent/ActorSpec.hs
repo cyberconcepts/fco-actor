@@ -32,7 +32,7 @@ spec = do
     it "receives and sends back messages" $ do
       myEchoRecvBox <- mailbox
       logger <- L.spawnQueueLogger
-      echo <- spawnStdActor (echoHdlr (L.log_msgBox logger)) () []
+      echo <- spawnStdActor (echoHdlr (messageBox logger)) () []
       runActor (do 
           send (messageBox echo) (EchoMsg myEchoRecvBox "My first message")
           receiveMailbox myEchoRecvBox) minimalContext

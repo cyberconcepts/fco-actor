@@ -15,14 +15,15 @@
 
 module Control.Concurrent.Actor (
   -- * Mailbox Types
-  Mailbox, StdBoxes (..), stdBoxes, ControlMsg (..),
+  Mailbox, Mailboxes, StdBoxes, ControlMsg (..),
+  controlBox, messageBox, stdBoxes,
   -- * Actors and Actor Contexts
-  Actor, Context (..), 
+  Actor, Context, 
   ctxGet, defContext, minimalContext, stdContext, runActor,
   spawnActor, spawnDefActor, spawnStdActor,
   -- * Listeners and Message Handlers
   Behaviour (..), Behavior, Listener, MsgHandler, 
-  defCtlHandler, defListener, forward,
+  dummyHandler, defCtlHandler, defListener, forward, stdBehvs,
   -- * Basic Messaging Functions
   mailbox, send, receive, receiveMailbox,
   -- * Utility Functions
@@ -46,11 +47,24 @@ import Control.Monad.Trans.Reader (ReaderT, asks, runReaderT)
 type Mailbox a = TChan a
 
 -- | A typical 'Actor' needs two 'Mailbox'es, one for receiving control messages,
--- and one for regular messages with a payload.
+-- and one for regular messages with a payload. The 'Mailboxes' class
+-- allows standardized access to these two mailboxes also in cases
+-- an actor uses additional mailboxes.
+class Mailboxes bx where
+    -- | Provide the mailbox for control messages.
+    controlBox :: bx a -> Mailbox ControlMsg
+    -- | Provide the mailbox for regular messages.
+    messageBox :: bx a -> Mailbox a
+
+-- | Standard set of mailboxes.
 data StdBoxes msg = StdBoxes {
-    controlBox :: Mailbox ControlMsg,
-    messageBox :: Mailbox msg
+    std_ctlBox :: Mailbox ControlMsg,
+    std_msgBox :: Mailbox msg
 }
+
+instance Mailboxes StdBoxes where
+    controlBox = std_ctlBox
+    messageBox = std_msgBox
 
 -- | Instantiate a 'StdBoxes' object with two 'MailBox'es.
 stdBoxes :: IO (StdBoxes msg)
@@ -67,7 +81,7 @@ data ControlMsg = Quit | Info Text
 
 -- * Actors, Listeners, Message Handlers
 
--- | A 'Context' constitutes the properties of the receive and processing 
+-- | A 'Context' provides the properties of the receive and processing 
 -- loop of an actor.
 --
 -- It usually consists of two or more 'Behaviour's 
@@ -97,10 +111,7 @@ minimalContext = defContext () [] []
 -- and mailboxes of child actors given.
 stdContext handler state children = do
       boxes <- liftIO stdBoxes
-      let ctx = defContext state [
-            Behv (controlBox boxes) defCtlHandler,
-            Behv (messageBox boxes) handler
-            ] children
+      let ctx = defContext state (stdBehvs boxes handler) children
       return (boxes, ctx)
 
 -- | The 'Actor' monad that provides access to actor config data
@@ -122,6 +133,14 @@ data Behaviour st = forall a. Behv (Mailbox a) (MsgHandler st a)
 
 -- | ... in case you prefer the American spelling.
 type Behavior = Behaviour
+
+-- | The standard 'Behaviours' setting for the two 
+-- standard 'Mailboxes'.
+stdBehvs :: Mailboxes bx => bx a -> MsgHandler st a -> [Behaviour st]
+stdBehvs boxes handler = [
+    Behv (controlBox boxes) defCtlHandler,
+    Behv (messageBox boxes) handler
+  ]
 
 -- | A message handler is called with the current state of the 'Listener'
 -- and a message. 
@@ -145,13 +164,18 @@ spawnActor listener context = do
 spawnDefActor :: Context st -> IO ()
 spawnDefActor = spawnActor defListener
 
--- | Spawn an 'Actor' using a standard set of 'Mailbox'es and
--- 'Behaviour's. Return the 'StdBoxes' object created.
-spawnStdActor :: MsgHandler st a -> st -> [Mailbox ControlMsg] -> IO (StdBoxes a)
+-- | Spawn an 'Actor' using a standard set of 'Mailboxes' and
+-- 'Behaviour's. 
+-- Return the 
+spawnStdActor :: MsgHandler st a      -- ^ Message handler for regular mailbox
+              -> st                   -- ^ Initial state
+              -> [Mailbox ControlMsg] -- ^ Control boxes of children
+              -> IO (StdBoxes a)      -- ^ 'StdBoxes' object created
 spawnStdActor handler state children = do
     (boxes, ctx) <- stdContext handler state children
-    spawnActor defListener ctx
+    spawnDefActor ctx
     return boxes
+
 
 -- * Predefined Actors, Listeners and Handlers
 
@@ -180,6 +204,9 @@ forward boxes state msg = do
     forM boxes $ \box -> send box msg
     return (Just state)
 
+-- | A dummy message handler that ignores all messages.
+dummyHandler :: MsgHandler st a
+dummyHandler st msg = return $ Just st
 
 -- * Messaging Functions
 

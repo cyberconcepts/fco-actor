@@ -8,7 +8,7 @@ import Control.Exception (evaluate)
 import BasicPrelude
 
 import Control.Concurrent.Actor
-import Control.Concurrent.Actor.Logging
+import qualified Control.Concurrent.Actor.Logging as L
 
 
 -- `main` is here so that this module can be run from GHCi on its own.  It is
@@ -30,21 +30,30 @@ spec = do
 
   describe "standard actor with 'echo' handler" $ do
     it "receives and sends back messages" $ do
-      myBox <- mailbox
-      logger <- spawnQueueLogger
-      echo <- spawnStdActor (echoHdlr (log_msgBox logger)) () []
+      myEchoRecvBox <- mailbox
+      logger <- L.spawnQueueLogger
+      echo <- spawnStdActor (echoHdlr (L.log_msgBox logger)) () []
       runActor (do 
-          send (messageBox echo) (EchoMsg myBox "My first message")
-          receiveMailbox myBox) minimalContext
-      `shouldReturn` "My first message"
+          send (messageBox echo) (EchoMsg myEchoRecvBox "My first message")
+          receiveMailbox myEchoRecvBox) minimalContext
+        `shouldReturn` "My first message"
+      myLogRecvBox <- mailbox
+      runActor (do
+          send (L.log_queryBox logger) (L.PopLogItem myLogRecvBox)
+          receiveMailbox myLogRecvBox) minimalContext
+        `shouldReturn` (Just (L.Info "My first message"))
+      runActor (do
+          send (L.log_queryBox logger) (L.PopLogItem myLogRecvBox)
+          receiveMailbox myLogRecvBox) minimalContext
+        `shouldReturn` Nothing
 
 
 -- implementation of messages, actors, handlers, etc
 
 data EchoMsg = EchoMsg (Mailbox Text) Text
 
-echoHdlr :: (Mailbox Text) -> MsgHandler st (EchoMsg)
+echoHdlr :: (Mailbox L.LogData) -> MsgHandler st EchoMsg
 echoHdlr loggerBox state (EchoMsg clientBox txt) = do
-    send loggerBox txt  -- not used yet
+    send loggerBox $ L.Info txt
     send clientBox txt 
     return (Just state)

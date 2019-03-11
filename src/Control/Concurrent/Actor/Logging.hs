@@ -47,15 +47,15 @@ spawnConsoleLogger = do
 
 -- * -- Queryable Queue Logger
 
-data LoggerQuery a = PopLogItem (Mailbox (Maybe a))
+data LoggerQuery a = PopLogItem (Mailbox (Maybe LogData))
 
-data LoggerBoxes a = LoggerBoxes {
+data LoggerBoxes = LoggerBoxes {
     log_ctlBox    :: Mailbox ControlMsg,
-    log_msgBox    :: Mailbox a,
-    log_queryBox  :: Mailbox (LoggerQuery a)
+    log_msgBox    :: Mailbox LogData,
+    log_queryBox  :: Mailbox (LoggerQuery LogData)
 }
 
-spawnQueueLogger :: IO (LoggerBoxes a)
+spawnQueueLogger :: IO LoggerBoxes
 spawnQueueLogger = do
     ctlBox <- mailbox
     logBox <- mailbox

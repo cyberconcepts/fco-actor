@@ -71,7 +71,7 @@ spawnConfigDef :: IO (StdBoxes ConfigRequest)
 spawnConfigDef = 
     (lookupEnv "config-fco") >>= \case
       Just path -> spawnConfig path
-      _ -> spawnConfig "../data/config-fco.yaml"
+      _ -> spawnConfig "../../data/config-fco.yaml"
 
 -- | Load config data from the path given into the 'ConfigStore'
 -- and spawn a config actor waiting for a 'ConfigRequest'.

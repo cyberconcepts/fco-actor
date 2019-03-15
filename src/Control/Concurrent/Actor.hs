@@ -25,7 +25,7 @@ module Control.Concurrent.Actor (
   Behaviour (..), Behavior, Listener, MsgHandler, 
   dummyHandler, defCtlHandler, defListener, forward, stdBehvs,
   -- * Basic Messaging Functions
-  mailbox, send, receive, receiveMailbox,
+  call, mailbox, send, receive, receiveMailbox,
   -- * Utility Functions
   whileDataM
   ) where
@@ -212,6 +212,7 @@ forward boxes state msg = do
 dummyHandler :: MsgHandler st a
 dummyHandler st msg = return $ Just st
 
+
 -- * Messaging Functions
 
 -- | Create a new 'Mailbox'.
@@ -236,11 +237,25 @@ receive state behvs =
             Nothing -> processBehv state rest
             Just msg -> return (handler state msg)
 
--- | Wait for a 'Message' in the 'Mailbox' given. This function should
--- only be used in very special cases (or for testing); 
--- in most cases you will want to use 'receive' instead.
+-- | Wait for a 'Message' in the 'Mailbox' given.
 receiveMailbox :: Mailbox a -> Actor st a
 receiveMailbox = liftIO . atomically . readTChan
+
+-- | Emulates a synchronous call: send a message to an actor 
+-- (addressed by a 'Mailboxes' object) and wait for a response.
+--
+-- The second parameter is a partial message that accepts a
+-- mailbox that will receive the response. 
+--
+-- Use this function with care as it will block if there is no actor 
+-- listening or the actor does not respond.
+call :: Mailboxes mbx => mbx b -> (Mailbox r -> b) -> IO r
+call bx dc = do
+    mb <- mailbox
+    let act = do
+          send (messageBox bx) (dc mb)
+          receiveMailbox mb
+    runActor act minimalContext
 
 
 -- * Utility Functions

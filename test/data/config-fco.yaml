@@ -16,7 +16,7 @@ client-pocket:
     access-token: 5678defg-5678-defg-5678-defg56
 
 backend-pgsql:
-    dbname: fco01
+    dbname: fco_test
     dbuser: fco
     dbpassword: funky
 

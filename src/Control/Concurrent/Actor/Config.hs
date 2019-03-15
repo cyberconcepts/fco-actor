@@ -53,7 +53,7 @@ type ConfigStore = HashMap DSKey DSValue
 
 -- | A message sent to a config actor that either queries
 -- the configuration for a certain key or updates a dataset.
-data ConfigRequest = ConfigQuery (Mailbox ConfigResponse) DSKey
+data ConfigRequest = ConfigQuery DSKey (Mailbox ConfigResponse)
                    | ConfigUpdate DSKey CKey CValue
 
 -- | The response sent back upon receiveing a 'ConfigQuery' request.
@@ -81,7 +81,7 @@ spawnConfig path = do
     spawnStdActor configHandler cfg []
 
 configHandler :: MsgHandler ConfigStore ConfigRequest
-configHandler cfgData (ConfigQuery respbox key) = do
+configHandler cfgData (ConfigQuery key respbox) = do
     send respbox $ ConfigResponse (getDataFor key cfgData)
     return $ Just cfgData
 configHandler cfgData (ConfigUpdate dskey key value) = 

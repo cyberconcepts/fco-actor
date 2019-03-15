@@ -25,7 +25,7 @@ module Control.Concurrent.Actor (
   Behaviour (..), Behavior, Listener, MsgHandler, 
   dummyHandler, defCtlHandler, defListener, forward, stdBehvs,
   -- * Basic Messaging Functions
-  call, mailbox, send, receive, receiveMailbox,
+  call, mailbox, send, receive, receiveMessage,
   -- * Utility Functions
   whileDataM
   ) where
@@ -238,8 +238,8 @@ receive state behvs =
             Just msg -> return (handler state msg)
 
 -- | Wait for a 'Message' in the 'Mailbox' given.
-receiveMailbox :: Mailbox a -> Actor st a
-receiveMailbox = liftIO . atomically . readTChan
+receiveMessage :: Mailbox a -> Actor st a
+receiveMessage = liftIO . atomically . readTChan
 
 -- | Emulates a synchronous call: send a message to an actor 
 -- (addressed by a 'Mailboxes' object) and wait for a response.
@@ -252,9 +252,7 @@ receiveMailbox = liftIO . atomically . readTChan
 call :: Mailboxes mbx => mbx b -> (Mailbox r -> b) -> IO r
 call bx dc = do
     mb <- mailbox
-    let act = do
-          send (messageBox bx) (dc mb)
-          receiveMailbox mb
+    let act = send (messageBox bx) (dc mb) >> receiveMessage mb
     runActor act minimalContext
 
 

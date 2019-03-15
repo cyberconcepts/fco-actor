@@ -25,7 +25,7 @@ spec = do
       mb <- mailbox
       runActor (do
           send mb 7
-          receiveMailbox mb) minimalContext
+          receiveMessage mb) minimalContext
       `shouldReturn` 7
 
   describe "standard actor with 'echo' handler" $ do
@@ -35,16 +35,16 @@ spec = do
       echo <- spawnStdActor (echoHdlr (messageBox logger)) () []
       runActor (do 
           send (messageBox echo) (EchoMsg myEchoRecvBox "My first message")
-          receiveMailbox myEchoRecvBox) minimalContext
+          receiveMessage myEchoRecvBox) minimalContext
         `shouldReturn` "My first message"
       myLogRecvBox <- mailbox
       runActor (do
           send (L.log_queryBox logger) (L.PopLogItem myLogRecvBox)
-          receiveMailbox myLogRecvBox) minimalContext
+          receiveMessage myLogRecvBox) minimalContext
         `shouldReturn` (Just (L.Info "My first message"))
       runActor (do
           send (L.log_queryBox logger) (L.PopLogItem myLogRecvBox)
-          receiveMailbox myLogRecvBox) minimalContext
+          receiveMessage myLogRecvBox) minimalContext
         `shouldReturn` Nothing
 
 

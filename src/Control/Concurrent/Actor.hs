@@ -20,8 +20,8 @@ module Control.Concurrent.Actor (
   -- * Actors and Actor Contexts
   Actor, Context (..), 
   ctxAddChild, ctxGet, ctxGets, ctxModify, ctxPut, 
-  defContext, minimalContext, setStdContext, stdContext, runActor,
-  spawnActor, spawnDefActor, spawnStdActor,
+  defContext, minimalContext, setStdContext, stdContext, 
+  runActor, spawnActor, spawnDefActor, spawnStdActor, updateContext,
   -- * Listeners and Message Handlers
   Behaviour (..), Behavior, Listener, MsgHandler, 
   dummyHandler, defCtlHandler, defListener, forward, stdBehvs,
@@ -105,6 +105,11 @@ data Context st = Context {
 -- and behaviours given.
 defContext state behvs children = Context state behvs children
 
+-- | Update the current context, setting initial state and behaviours
+-- to the values given.
+updateContext state behvs = ctxModify $ \ctx ->
+    ctx { act_initState = state, act_behaviours = behvs }
+
 -- | A minimal 'Context' for an 'Actor' with no state, 
 -- no behaviours, no children.
 minimalContext = defContext () [] []
@@ -116,12 +121,11 @@ stdContext handler state = do
     let ctx = defContext state (stdBehvs boxes handler []) []
     return (boxes, ctx)
 
--- | Overwrite the current context using the message handler and 
--- state given, keeping the value of the 'act_children' attribute.
+-- | Update the current context using the message handler and 
+-- initial state given.
 setStdContext handler state = do
-    boxes <- stdBoxes
-    children <- ctxGets act_children
-    ctxPut $ defContext state (stdBehvs boxes handler []) children
+    boxes <- stdBoxes 
+    updateContext state (stdBehvs boxes handler [])
     return boxes
 
 -- | The 'Actor' monad that provides access to actor config data

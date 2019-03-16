@@ -19,7 +19,8 @@ module Control.Concurrent.Actor (
   controlBox, messageBox, stdBoxes,
   -- * Actors and Actor Contexts
   Actor, Context, 
-  ctxGets, defContext, minimalContext, setStdContext, stdContext, runActor,
+  ctxGet, ctxGets, ctxModify, ctxPut, 
+  defContext, minimalContext, setStdContext, stdContext, runActor,
   spawnActor, spawnDefActor, spawnStdActor,
   -- * Listeners and Message Handlers
   Behaviour (..), Behavior, Listener, MsgHandler, 

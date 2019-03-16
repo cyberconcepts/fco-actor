@@ -78,7 +78,9 @@ spawnConfigDef =
 spawnConfig :: FilePath -> Actor st (StdBoxes ConfigRequest)
 spawnConfig path = do
     cfg <- liftIO $ loadConfig path
-    spawnStdActor configHandler cfg []
+    boxes <- spawnStdActor configHandler cfg []
+    -- TODO: append control box to children
+    return boxes
 
 configHandler :: MsgHandler ConfigStore ConfigRequest
 configHandler cfgData (ConfigQuery key respbox) = do

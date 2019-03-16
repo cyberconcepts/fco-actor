@@ -37,7 +37,7 @@ data LogData =  Debug Text
 -- * Null Logger
 
 spawnNullLogger :: Actor st (StdBoxes LogData)
-spawnNullLogger =  spawnStdActor dummyHandler () []
+spawnNullLogger =  spawnStdActor dummyHandler ()
 
 
 -- * Console Output Logger
@@ -49,7 +49,7 @@ spawnConsoleLogger = do
         handler st msg = do 
           send (messageBox output) (T.pack (show msg))
           return $ Just st
-    spawnStdActor handler () [(controlBox output)]
+    spawnStdActor handler ()
 
 
 -- * Queryable Queue Logger

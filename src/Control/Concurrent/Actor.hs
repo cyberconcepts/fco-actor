@@ -18,8 +18,8 @@ module Control.Concurrent.Actor (
   Mailbox, Mailboxes, StdBoxes, ControlMsg (..),
   controlBox, messageBox, stdBoxes,
   -- * Actors and Actor Contexts
-  Actor, Context, 
-  ctxGet, ctxGets, ctxModify, ctxPut, 
+  Actor, Context (..), 
+  ctxAddChild, ctxGet, ctxGets, ctxModify, ctxPut, 
   defContext, minimalContext, setStdContext, stdContext, runActor,
   spawnActor, spawnDefActor, spawnStdActor,
   -- * Listeners and Message Handlers
@@ -101,8 +101,8 @@ data Context st = Context {
     act_children   :: [Mailbox ControlMsg]  -- ^ Children's control mailboxes.
 }
 
--- | A default 'Context' for an 'Actor' with the state, 
--- behaviours, and children given.
+-- | A default 'Context' for an 'Actor' with the state
+-- and behaviours given.
 defContext state behvs children = Context state behvs children
 
 -- | A minimal 'Context' for an 'Actor' with no state, 
@@ -110,13 +110,14 @@ defContext state behvs children = Context state behvs children
 minimalContext = defContext () [] []
 
 -- | Set up a standard 'Context' with two mailboxes ('StdBoxes').
--- using the message handler, initial state, 
--- and mailboxes of child actors given.
-stdContext handler state children = do
+-- using the message handler and initial state given.
+stdContext handler state = do
     boxes <- stdBoxes
-    let ctx = defContext state (stdBehvs boxes handler []) children
+    let ctx = defContext state (stdBehvs boxes handler []) []
     return (boxes, ctx)
 
+-- | Overwrite the current context using the message handler and 
+-- state given, keeping the value of the 'act_children' attribute.
 setStdContext handler state = do
     boxes <- stdBoxes
     children <- ctxGets act_children
@@ -140,12 +141,19 @@ ctxGet = Actor get
 ctxGets :: (Context st -> a) -> Actor st a
 ctxGets = Actor . gets
 
+-- | Store the 'Context' given in the 'Actor' monad.
 ctxPut :: Context st -> Actor st ()
 ctxPut st = Actor $ put st
 
 -- | Modify the 'Context' of the current 'Actor' monad.
 ctxModify :: (Context st -> Context st) -> Actor st ()
 ctxModify = Actor . modify
+
+-- | Add a child control mailbox to the set of children 
+-- in the current 'Actor' monad.
+ctxAddChild :: Mailbox ControlMsg -> Actor st ()
+ctxAddChild mb = ctxModify $ \ctx ->
+                      ctx { act_children = mb : (act_children ctx) }
 
 -- | A 'Behaviour' is a combination of a 'Mailbox' and a 'MsgHandler'.
 -- The 'MsgHandler' will process a message delivered via the 'Mailbox'.
@@ -193,10 +201,10 @@ spawnDefActor = spawnActor defListener
 -- Return the 'StdBoxes' object created.
 spawnStdActor :: MsgHandler st a      -- ^ Message handler for regular mailbox.
               -> st                   -- ^ Initial state.
-              -> [Mailbox ControlMsg] -- ^ Control boxes of children.
-              -> Actor st2 (StdBoxes a)      -- ^ 'StdBoxes' object created.
-spawnStdActor handler state children = do
-    (boxes, ctx) <- stdContext handler state children
+              -> Actor st2 (StdBoxes a) -- ^ Return 'StdBoxes' object created.
+spawnStdActor handler state = do
+    (boxes, ctx) <- stdContext handler state
+    ctxAddChild (controlBox boxes)
     spawnDefActor ctx
     return boxes
 

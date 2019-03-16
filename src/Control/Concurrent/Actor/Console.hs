@@ -31,10 +31,7 @@ spawnConIn parent = spawnActor (conInActor parent) minimalContext
 
 -- | Spawn a console output actor.
 spawnConOut :: Actor st (StdBoxes Text)
-spawnConOut = do
-    boxes <- spawnStdActor conOutHandler () []
-    -- TODO: append control box to children
-    return boxes
+spawnConOut = spawnStdActor conOutHandler ()
 
 -- | Create a console input (stdin) 'Listener'. 
 --

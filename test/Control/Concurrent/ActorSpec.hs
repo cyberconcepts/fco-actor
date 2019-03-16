@@ -33,7 +33,7 @@ spec = do
       runActor (do 
           myEchoRecvBox <- mailbox
           logger <- L.spawnQueueLogger
-          echo <- spawnStdActor (echoHdlr (messageBox logger)) () []
+          echo <- spawnStdActor (echoHdlr (messageBox logger)) ()
           send (messageBox echo) (EchoMsg myEchoRecvBox "My first message")
           m1 <- receiveMessage myEchoRecvBox
           myLogRecvBox <- mailbox

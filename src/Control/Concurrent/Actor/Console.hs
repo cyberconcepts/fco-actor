@@ -18,20 +18,23 @@ import BasicPrelude
 import Control.Monad.Extra (whileM)
 
 import Control.Concurrent.Actor ( 
-    ControlMsg (..), Listener, MsgHandler, StdBoxes,
+    Actor, ControlMsg (..), Listener, MsgHandler, StdBoxes,
     controlBox, messageBox,
-    defListener, forward, minimalContext, runActor, send, 
+    defListener, forward, minimalContext, runActor, send, setStdContext,
     spawnActor, spawnStdActor, stdContext)
 
 
 -- | Spawn a console input actor that sends text entered to the 
 -- parent actor given. 
-spawnConIn :: (StdBoxes Text) -> IO ()
+spawnConIn :: (StdBoxes Text) -> Actor st ()
 spawnConIn parent = spawnActor (conInActor parent) minimalContext
 
 -- | Spawn a console output actor.
-spawnConOut :: IO (StdBoxes Text)
-spawnConOut = spawnStdActor conOutHandler () []
+spawnConOut :: Actor st (StdBoxes Text)
+spawnConOut = do
+    boxes <- spawnStdActor conOutHandler () []
+    -- TODO: append control box to children
+    return boxes
 
 -- | Create a console input (stdin) 'Listener'. 
 --
@@ -54,9 +57,9 @@ conOutHandler _ line = putStrLn line >> return (Just ())
 -- Stops when "bye" is entered.
 demo :: IO ()
 demo = do
-    output <- spawnConOut
-    (self, selfCtx) <- stdContext 
-                          (forward [messageBox output]) ()
-                          [controlBox output]
-    spawnConIn self
-    runActor defListener selfCtx
+    let act = do
+          output <- spawnConOut
+          self <- setStdContext (forward [messageBox output]) ()
+          spawnConIn self
+          defListener
+    runActor act minimalContext

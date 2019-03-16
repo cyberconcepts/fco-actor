@@ -28,7 +28,7 @@ import System.Directory (doesFileExist, findFile)
 import System.Environment (lookupEnv)
 
 import Control.Concurrent.Actor (
-    Mailbox, MsgHandler, StdBoxes,
+    Actor, Mailbox, MsgHandler, StdBoxes,
     send, spawnStdActor)
 
 
@@ -67,17 +67,17 @@ newtype ConfigResponse = ConfigResponse DataSet
 --
 -- The path is provided via the environment variable "config-fco";
 -- if this is not set the default path "../data/config-fco.yaml" is used.
-spawnConfigDef :: IO (StdBoxes ConfigRequest)
+spawnConfigDef :: Actor st (StdBoxes ConfigRequest)
 spawnConfigDef = 
-    (lookupEnv "config-fco") >>= \case
+    (liftIO $ lookupEnv "config-fco") >>= \case
       Just path -> spawnConfig path
       _ -> spawnConfig "../../data/config-fco.yaml"
 
 -- | Load config data from the path given into the 'ConfigStore'
 -- and spawn a config actor waiting for a 'ConfigRequest'.
-spawnConfig :: FilePath -> IO (StdBoxes ConfigRequest)
+spawnConfig :: FilePath -> Actor st (StdBoxes ConfigRequest)
 spawnConfig path = do
-    cfg <- loadConfig path
+    cfg <- liftIO $ loadConfig path
     spawnStdActor configHandler cfg []
 
 configHandler :: MsgHandler ConfigStore ConfigRequest

@@ -36,13 +36,13 @@ data LogData =  Debug Text
 
 -- * Null Logger
 
-spawnNullLogger :: IO (StdBoxes LogData)
+spawnNullLogger :: Actor st (StdBoxes LogData)
 spawnNullLogger =  spawnStdActor dummyHandler () []
 
 
 -- * Console Output Logger
 
-spawnConsoleLogger :: IO (StdBoxes LogData)
+spawnConsoleLogger :: Actor st (StdBoxes LogData)
 spawnConsoleLogger = do
     output <- spawnConOut
     let handler :: MsgHandler () LogData
@@ -66,7 +66,7 @@ instance Mailboxes LoggerBoxes where
     controlBox = log_ctlBox
     messageBox = log_msgBox
 
-spawnQueueLogger :: IO (LoggerBoxes LogData)
+spawnQueueLogger :: Actor st (LoggerBoxes LogData)
 spawnQueueLogger = do
     ctlBox <- mailbox
     logBox <- mailbox

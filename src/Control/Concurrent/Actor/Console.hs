@@ -21,7 +21,7 @@ import Control.Concurrent.Actor (
     Actor, ControlMsg (..), Listener, MsgHandler, StdBoxes,
     controlBox, messageBox,
     defListener, forward, minimalContext, runActor, send, setStdContext,
-    spawnActor, spawnStdActor, stdContext)
+    spawnActor, spawnStdActor)
 
 
 -- | Spawn a console input actor that sends text entered to the 

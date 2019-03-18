@@ -53,10 +53,9 @@ conOutHandler _ line = putStrLn line >> return (Just ())
 -- a console output actor.
 -- Stops when "bye" is entered.
 demo :: IO ()
-demo = do
-    let act = do
-          output <- spawnConOut
-          self <- setStdContext (forward [messageBox output]) ()
-          spawnConIn self
-          defListener
-    runActor act minimalContext
+demo = runActor act minimalContext where
+  act = do
+      output <- spawnConOut
+      self <- setStdContext (forward [messageBox output]) ()
+      spawnConIn self
+      defListener

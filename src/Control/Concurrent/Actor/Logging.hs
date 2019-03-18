@@ -20,7 +20,7 @@ import Control.Concurrent.Actor (
     Actor,
     Behaviour (..), ControlMsg, Mailbox, Mailboxes, MsgHandler, StdBoxes,
     controlBox, messageBox,
-    dummyHandler, defContext,
+    ctxAddChild, dummyHandler, defContext,
     defCtlHandler, mailbox, send, spawnDefActor, spawnStdActor, stdBehvs)
 import Control.Concurrent.Actor.Console (spawnConOut)
 
@@ -80,4 +80,5 @@ spawnQueueLogger = do
         behvs = stdBehvs boxes logHandler [Behv queryBox queryHandler]
         ctx = defContext (fromList []) behvs []
     spawnDefActor ctx
+    ctxAddChild ctlBox
     return boxes

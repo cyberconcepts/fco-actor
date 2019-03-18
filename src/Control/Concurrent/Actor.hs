@@ -102,7 +102,7 @@ data Context st = Context {
 }
 
 -- | A minimal 'Context' for an 'Actor' with no state, 
--- no behaviours, no children.
+-- no behaviours, no children (yet).
 minimalContext :: Context ()
 minimalContext = defContext () [] []
 
@@ -158,11 +158,14 @@ ctxPut st = Actor $ put st
 ctxModify :: (Context st -> Context st) -> Actor st ()
 ctxModify = Actor . modify
 
--- | Add a child control mailbox to the set of children 
+-- | Add a control mailbox (if not yet present) to the set of children
 -- in the current 'Actor' monad.
 ctxAddChild :: Mailbox ControlMsg -> Actor st ()
-ctxAddChild mb = ctxModify $ \ctx ->
-                      ctx { act_children = mb : (act_children ctx) }
+ctxAddChild mb = do
+    ctx <- ctxGet
+    let children = act_children ctx
+    when (notElem mb children) $ 
+        ctxPut $ ctx { act_children = mb : children }
 
 -- | A 'Behaviour' is a combination of a 'Mailbox' and a 'MsgHandler'.
 -- The 'MsgHandler' will process a message delivered via the 'Mailbox'.
@@ -205,11 +208,11 @@ spawnActor listener context = do
 spawnDefActor :: Context stn -> Actor st ()
 spawnDefActor = spawnActor defListener
 
--- | Spawn an 'Actor' using a standard set of 'Mailboxes' and
+-- | Spawn a new 'Actor' using a standard set of 'Mailboxes' and
 -- 'Behaviour's. 
 -- Return the 'StdBoxes' object created.
 spawnStdActor :: MsgHandler stn a      -- ^ Message handler for regular mailbox.
-              -> stn                   -- ^ Initial state.
+              -> stn                   -- ^ Initial state of new actor.
               -> Actor st (StdBoxes a) -- ^ Return 'StdBoxes' object created.
 spawnStdActor handler state = do
     (boxes, ctx) <- stdContext handler state
@@ -230,6 +233,8 @@ defListener = do
 
 -- | A default handler for control messages, returning 'Nothing' when
 -- called with a 'Quit' message.
+--
+-- All messages are forwarded to the children of the current 'Actor'.
 defCtlHandler :: MsgHandler st ControlMsg
 defCtlHandler state msg = do
     children <- ctxGets act_children

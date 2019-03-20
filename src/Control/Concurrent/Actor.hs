@@ -20,11 +20,11 @@ module Control.Concurrent.Actor (
   -- * Actors and Actor Contexts
   Actor, Context (..), 
   ctxAddChild, ctxGet, ctxGets, ctxModify, ctxPut, 
-  defContext, minimalContext, setDefContext, setStdContext, stdContext, 
-  runActor, spawnActor, spawnDefActor, spawnStdActor,
+  defContext, minimalContext, setDefContext, setStdContext, 
+  runActor, spawnActor, spawnDefActor, spawnStdActor, spawnStdActor2,
   -- * Listeners and Message Handlers
   Behaviour (..), Behavior, Listener, MsgHandler, 
-  dummyHandler, defCtlHandler, defListener, forward, stdBehvs,
+  dummyHandler, defCtlHandler, defListener, forward, stdBehvs, setStdBehvs, 
   -- * Basic Messaging Functions
   call, mailbox, send, receive, receiveMessage,
   -- * Utility Functions
@@ -117,14 +117,6 @@ setDefContext :: st -> [Behaviour st] -> Actor st ()
 setDefContext state behvs = ctxModify $ \ctx ->
     ctx { act_initState = state, act_behaviours = behvs }
 
--- | Set up a new standard 'Context' with two mailboxes ('StdBoxes').
--- using the message handler and initial state given.
-stdContext :: MsgHandler stn a -> stn -> Actor st (StdBoxes a, Context stn)
-stdContext handler state = do
-    boxes <- stdBoxes
-    let ctx = defContext state (stdBehvs boxes handler []) []
-    return (boxes, ctx)
-
 -- | Update the current context using the message handler and 
 -- initial state given.
 setStdContext :: MsgHandler st a -> st -> Actor st (StdBoxes a)
@@ -186,6 +178,13 @@ stdBehvs boxes handler addBehvs =
     Behv (messageBox boxes) handler : 
     addBehvs
 
+-- | Update the context with a standard 'Behaviours' setting for
+-- the two standard 'Mailboxes'.
+setStdBehvs :: Mailboxes bx => bx a -> MsgHandler st a -> [Behaviour st]
+            -> Actor st ()
+setStdBehvs boxes handler addBehvs = ctxModify $ \ctx ->
+    ctx { act_behaviours = stdBehvs boxes handler addBehvs }
+
 -- | A message handler is called with the current state of the 'Listener'
 -- and a message. 
 --
@@ -198,10 +197,10 @@ type MsgHandler st a = st -> a -> (Actor st) (Maybe st)
 type Listener st = Actor st ()
 
 -- | Spawn an 'Actor' in a new thread using 
--- the 'Listener' and the 'Context' given.
-spawnActor :: Listener stn -> Context stn -> Actor st ()
-spawnActor listener context = do
-    liftIO $ forkIO $ runActor listener context
+-- the action (usually just a 'Listner') and the 'Context' given.
+spawnActor :: Actor stn () -> Context stn -> Actor st ()
+spawnActor act context = do
+    liftIO $ forkIO $ runActor act context
     return ()
 
 -- | Spawn an 'Actor' using the default listener 'defListener'
@@ -215,11 +214,26 @@ spawnStdActor :: MsgHandler stn a      -- ^ Message handler for regular mailbox.
               -> stn                   -- ^ Initial state of new actor.
               -> Actor st (StdBoxes a) -- ^ Return 'StdBoxes' object created.
 spawnStdActor handler state = do
-    (boxes, ctx) <- stdContext handler state
-    ctxAddChild (controlBox boxes)
-    spawnDefActor ctx
-    return boxes
+    let act self = setStdBehvs self handler [] >> defListener
+    spawnStdActor2 act state
 
+-- | A variation on 'spawnStdActor' that does not directly call
+-- 'defListener' but accepts a more complex action that e.g. could
+-- set up child actors and other stuff that should run in the 
+-- newly created actor.
+--
+-- Note that the action is responsible for setting up
+-- the context with the benaviours, probably using 'setStdBehvs'.
+-- The action will be called with the newly created 'StdBoxes' object
+-- as parameter to make this possible.
+-- Also the listener (probably 'defListener') must be explicitly 
+-- called in the action.
+spawnStdActor2 :: (StdBoxes a -> Actor stn ()) -> stn -> Actor st (StdBoxes a)
+spawnStdActor2 act state = do
+    self <- stdBoxes
+    ctxAddChild (controlBox self)
+    spawnActor (act self) (defContext state [] [])
+    return self
 
 -- * Predefined Actors, Listeners and Handlers
 

@@ -19,9 +19,11 @@ import Deque (fromList, cons, unsnoc)
 import Control.Concurrent.Actor (
     Actor,
     Behaviour (..), ControlMsg, Mailbox, Mailboxes, MsgHandler, StdBoxes,
+    defListener, minimalContext, setDefContext, spawnActor, stdBoxes, 
     controlBox, messageBox,
     ctxAddChild, dummyHandler, defContext,
-    defCtlHandler, mailbox, send, spawnDefActor, spawnStdActor, stdBehvs)
+    defCtlHandler, mailbox, send, setStdBehvs, spawnDefActor, 
+    spawnStdActor, spawnStdActor2, stdBehvs)
 import Control.Concurrent.Actor.Console (spawnConOut)
 
 
@@ -44,12 +46,15 @@ spawnNullLogger =  spawnStdActor dummyHandler ()
 
 spawnConsoleLogger :: Actor st (StdBoxes LogData)
 spawnConsoleLogger = do
-    output <- spawnConOut
-    let handler :: MsgHandler () LogData
-        handler st msg = do 
+    let handler :: StdBoxes Text -> MsgHandler () LogData
+        handler output st msg = do 
           send (messageBox output) (T.pack (show msg))
           return $ Just st
-    spawnStdActor handler ()
+        act self = do
+          output <- spawnConOut
+          setStdBehvs self (handler output) []
+          defListener
+    spawnStdActor2 act ()
 
 
 -- * Queryable Queue Logger

@@ -19,10 +19,10 @@ import Deque (fromList, cons, unsnoc)
 import Control.Concurrent.Actor (
     Actor,
     Behaviour (..), ControlMsg, Mailbox, Mailboxes, MsgHandler, StdBoxes,
-    defListener, minimalContext, setDefContext, spawnActor, stdBoxes, 
+    defListener, 
     controlBox, messageBox,
     ctxAddChild, dummyHandler, defContext,
-    defCtlHandler, mailbox, send, setStdBehvs, spawnDefActor, 
+    mailbox, send, setStdBehvs, spawnDefActor, 
     spawnStdActor, spawnStdActor2, stdBehvs)
 import Control.Concurrent.Actor.Console (spawnConOut)
 

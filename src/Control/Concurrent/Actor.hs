@@ -125,7 +125,7 @@ setStdContext handler state = do
     setDefContext state (stdBehvs boxes handler [])
     return boxes
 
-    -- | The 'Actor' monad that provides access to actor config data
+-- | The 'Actor' monad that provides access to actor config data
 -- via the wrapped 'Context' object.
 newtype Actor st a = Actor (StateT (Context st) IO a)
     deriving (Functor, Applicative, Monad, MonadIO)
@@ -200,6 +200,7 @@ type Listener st = Actor st ()
 -- the action (usually just a 'Listner') and the 'Context' given.
 spawnActor :: Actor stn () -> Context stn -> Actor st ()
 spawnActor act context = do
+    -- TODO: use async instead of forkIO
     liftIO $ forkIO $ runActor act context
     return ()
 

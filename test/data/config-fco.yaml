@@ -8,7 +8,7 @@ core-log:
 
 client-loops:
     url: https://webapi.cyberconcepts.org/test
-    user: fco
+    user: fco-test
     password: funky
 
 client-pocket:
@@ -20,3 +20,8 @@ backend-pgsql:
     dbuser: fco
     dbpassword: funky
 
+server:
+    port: 8765
+
+server-commands:
+    blog-publish: []
